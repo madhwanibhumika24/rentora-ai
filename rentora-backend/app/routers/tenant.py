@@ -9,6 +9,7 @@ from app.models.property import Property
 from app.models.room import Room
 from app.models.booking import Booking, BookingStatus
 from app.schemas.tenant import BookingCreate, BookingOut
+from app.services.ai import calculate_match_score
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/tenant", tags=["tenant"])
 def explore_rooms(
     city: Optional[str] = None,
     max_rent: Optional[float] = None,
+    budget: Optional[float] = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Room).join(Property).filter(Room.is_available == True)
@@ -25,8 +27,10 @@ def explore_rooms(
     if max_rent is not None:
         query = query.filter(Room.rent_amount <= max_rent)
     rooms = query.all()
-    return [
-        {
+
+    results = []
+    for room in rooms:
+        results.append({
             "id": room.id,
             "property_id": room.property_id,
             "property_name": room.property.name,
@@ -35,11 +39,11 @@ def explore_rooms(
             "bed_count": room.bed_count,
             "rent_amount": float(room.rent_amount),
             "is_available": room.is_available,
-        }
-        for room in rooms
-    ]
+            "match_score": calculate_match_score(room, city, budget),
+        })
 
-
+    results.sort(key=lambda r: r["match_score"], reverse=True)
+    return results
 @router.get("/properties/{property_id}")
 def get_property_detail(property_id: int, db: Session = Depends(get_db)):
     property_obj = db.query(Property).filter(Property.id == property_id).first()
