@@ -28,3 +28,9 @@ def require_owner(current_user: User = Depends(get_current_user)) -> User:
     if current_user.role != UserRole.owner:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner access required")
     return current_user
+
+
+def require_tenant(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != UserRole.tenant:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant access required")
+    return current_user
