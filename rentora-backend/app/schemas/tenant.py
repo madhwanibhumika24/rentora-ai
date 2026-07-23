@@ -19,3 +19,7 @@ class BookingOut(BaseModel):
     status: BookingStatus
     move_in_date: Optional[date] = None
     created_at: datetime
+
+
+class BookingStatusUpdate(BaseModel):
+    status: BookingStatus

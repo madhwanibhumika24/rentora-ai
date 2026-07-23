@@ -7,7 +7,9 @@ from app.core.deps import require_owner
 from app.models.user import User
 from app.models.property import Property
 from app.models.room import Room
+from app.models.booking import Booking, BookingStatus
 from app.schemas.property import PropertyCreate, PropertyOut, RoomCreate, RoomOut
+from app.schemas.tenant import BookingOut, BookingStatusUpdate
 
 router = APIRouter(prefix="/owner", tags=["owner"])
 
@@ -81,3 +83,44 @@ def list_rooms(
         raise HTTPException(status_code=404, detail="Property not found")
 
     return db.query(Room).filter(Room.property_id == property_id).all()
+
+
+@router.get("/bookings", response_model=List[BookingOut])
+def list_booking_requests(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_owner),
+):
+    return (
+        db.query(Booking)
+        .join(Room)
+        .join(Property)
+        .filter(Property.owner_id == current_user.id)
+        .all()
+    )
+
+
+@router.patch("/bookings/{booking_id}", response_model=BookingOut)
+def update_booking_status(
+    booking_id: int,
+    payload: BookingStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_owner),
+):
+    booking = (
+        db.query(Booking)
+        .join(Room)
+        .join(Property)
+        .filter(Booking.id == booking_id, Property.owner_id == current_user.id)
+        .first()
+    )
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    booking.status = payload.status
+    if payload.status == BookingStatus.confirmed:
+        room = db.query(Room).filter(Room.id == booking.room_id).first()
+        room.is_available = False
+
+    db.commit()
+    db.refresh(booking)
+    return booking
