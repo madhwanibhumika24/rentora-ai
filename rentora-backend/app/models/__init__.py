@@ -6,3 +6,4 @@ from app.models.due import Due, DueStatus
 from app.models.payment import Payment
 from app.models.complaint import Complaint, ComplaintStatus
 from app.models.message import Message
+from app.models.community_post import CommunityPost
