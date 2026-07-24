@@ -11,3 +11,5 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
 google-auth==2.34.0
 email-validator==2.2.0
+razorpay==1.4.2
+setuptools<81

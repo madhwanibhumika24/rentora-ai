@@ -34,3 +34,20 @@ class PaymentOut(BaseModel):
     method: str
     transaction_id: Optional[str] = None
     paid_at: datetime
+
+
+class OrderOut(BaseModel):
+    # What we send back to the browser so it can open the Razorpay popup
+    order_id: str
+    amount: int
+    currency: str
+    key_id: str
+    due_id: int
+
+
+class VerifyPaymentRequest(BaseModel):
+    # These three values come back from the Razorpay popup after the
+    # tenant finishes paying. We use them to check the payment is real.
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str

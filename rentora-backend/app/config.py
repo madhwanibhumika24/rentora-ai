@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     email_port: int = 587
     email_user: str = ""
     email_password: str = ""
+    # Razorpay test/live keys - leave blank to keep using the simple
+    # "dev mode" instant-pay button (no real payment gateway).
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -7,3 +7,6 @@ from app.models.payment import Payment
 from app.models.complaint import Complaint, ComplaintStatus
 from app.models.message import Message
 from app.models.community_post import CommunityPost
+from app.models.property_photo import PropertyPhoto
+from app.models.property_rule import PropertyRule
+from app.models.call_request import CallRequest

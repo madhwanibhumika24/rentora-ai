@@ -24,6 +24,12 @@ class PropertyOut(BaseModel):
     created_at: datetime
 
 
+class PropertyUpdate(BaseModel):
+    # Right now an owner can only update their features (amenities) after
+    # creating a property. Add more fields here later if needed.
+    amenities: Optional[str] = None
+
+
 class RoomCreate(BaseModel):
     room_type: RoomType = RoomType.double
     bed_count: int = 1
@@ -39,3 +45,25 @@ class RoomOut(BaseModel):
     bed_count: int
     rent_amount: float
     is_available: bool
+
+
+class PhotoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+    image_url: str
+    created_at: datetime
+
+
+class RuleCreate(BaseModel):
+    text: str
+
+
+class RuleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    property_id: int
+    text: str
+    created_at: datetime
