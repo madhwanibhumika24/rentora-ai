@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rentora - Login</title>
+<link rel="stylesheet" href="../css/style.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+  <div class="login-container">
+
+    <div class="brand-panel">
+      <div class="brand-content">
+        <div class="brand-logo">R</div>
+
+        <svg class="brand-illustration-svg" viewBox="0 0 260 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="165" x2="250" y2="165" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M60 45 L130 10 L200 45" stroke="rgba(255,255,255,0.6)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="70" y="45" width="120" height="120" rx="6" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.5)" stroke-width="2"/>
+          <rect x="115" y="120" width="30" height="45" rx="3" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>
+          <circle cx="138" cy="142" r="1.6" fill="#fff"/>
+          <rect x="85" y="65" width="20" height="20" rx="3" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>
+          <rect x="155" y="65" width="20" height="20" rx="3" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>
+          <rect x="85" y="95" width="20" height="20" rx="3" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>
+          <rect x="155" y="95" width="20" height="20" rx="3" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>
+          <circle cx="35" cy="130" r="7" fill="rgba(255,255,255,0.7)"/>
+          <path d="M35 137 L35 155 M35 142 L25 150 M35 142 L45 148 M35 155 L28 165 M35 155 L42 165" stroke="rgba(255,255,255,0.7)" stroke-width="2.5" stroke-linecap="round"/>
+          <rect x="42" y="145" width="10" height="12" rx="2" fill="rgba(255,255,255,0.5)"/>
+          <path d="M210 55 L210 95" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M210 55 L232 62 L210 69 Z" fill="rgba(255,255,255,0.35)"/>
+        </svg>
+
+        <h1 class="brand-headline">Manage PGs and hostels, powered by AI</h1>
+
+        <p class="brand-quote"><span class="quote-mark">&ldquo;</span>Find a place that feels like home &mdash; not just four walls and a landlord.</p>
+
+        <div class="feature-list">
+          <div class="feature-item">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4a1 1 0 0 1 1.55-.832l6 4a1 1 0 0 1 0 1.664l-6 4A1 1 0 0 1 11 12v-8Z"></path><path d="M11 12v8a1 1 0 0 0 1.55.832l6-4"></path><path d="M3 6l6 4-6 4V6Z"></path></svg>
+            </div>
+            <div>
+              <p class="feature-text-title">AI-matched room search</p>
+              <p class="feature-text-sub">Find PGs ranked by budget, location, and preferences</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+            </div>
+            <div>
+              <p class="feature-text-title">Direct chat with owners</p>
+              <p class="feature-text-sub">Ask questions and book without middlemen</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
+            </div>
+            <div>
+              <p class="feature-text-title">Automated rent reminders</p>
+              <p class="feature-text-sub">Never miss a due date, no manual tracking needed</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-stats">
+          <div class="stat-item"><strong>500+</strong><span>PGs listed</span></div>
+          <div class="stat-item"><strong>12</strong><span>cities</span></div>
+          <div class="stat-item"><strong>4.8&#9733;</strong><span>avg. rating</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-card">
+
+        <div class="mobile-logo">
+          <div class="logo-badge">R</div>
+        </div>
+
+        <h2 class="form-title">Welcome to Rentora</h2>
+        <p class="form-sub" id="formSub">Log in to continue</p>
+
+        <div class="role-toggle" id="roleToggle">
+          <button type="button" class="role-btn active" id="roleTenantBtn" onclick="selectRole('tenant')">Tenant</button>
+          <button type="button" class="role-btn" id="roleOwnerBtn" onclick="selectRole('owner')">Owner</button>
+        </div>
+
+        <div class="role-toggle" id="authTabs">
+          <button type="button" class="role-btn active" id="tabLoginBtn" onclick="showStep('login')">Log in</button>
+          <button type="button" class="role-btn" id="tabSignupBtn" onclick="showStep('signup')">Sign up</button>
+        </div>
+
+        <!-- Log in -->
+        <div id="loginStep">
+          <div class="field-group">
+            <label class="field-label" for="loginEmail">Email</label>
+            <input class="field-input" id="loginEmail" type="email" placeholder="you@example.com">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="loginPassword">Password</label>
+            <input class="field-input" id="loginPassword" type="password" placeholder="********">
+          </div>
+          <button class="btn-primary" onclick="doLogin()">Log in</button>
+          <p style="text-align:right;margin:10px 0 0">
+            <button type="button" class="link-btn" onclick="showStep('forgot')">Forgot password?</button>
+          </p>
+        </div>
+
+        <!-- Sign up -->
+        <div id="signupStep" style="display:none">
+          <div class="field-group">
+            <label class="field-label" for="signupName">Your name</label>
+            <input class="field-input" id="signupName" type="text" placeholder="e.g. Priya Sharma">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="signupEmail">Email</label>
+            <input class="field-input" id="signupEmail" type="email" placeholder="you@example.com">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="signupPassword">Password</label>
+            <input class="field-input" id="signupPassword" type="password" placeholder="At least 8 characters">
+          </div>
+          <button class="btn-primary" onclick="doSignup()">Create account</button>
+        </div>
+
+        <!-- Verify email (after signup) -->
+        <div id="verifyStep" style="display:none">
+          <p class="room-meta" style="margin:0 0 14px">We sent a 6-digit code to <strong id="verifyEmailLabel"></strong></p>
+          <div class="field-group">
+            <label class="field-label" for="verifyOtp">Verification code</label>
+            <input class="field-input" id="verifyOtp" type="text" maxlength="6" placeholder="6-digit code">
+          </div>
+          <button class="btn-primary" onclick="doVerifyEmail()">Verify and continue</button>
+        </div>
+
+        <!-- Forgot password -->
+        <div id="forgotStep" style="display:none">
+          <div class="field-group">
+            <label class="field-label" for="forgotEmail">Email</label>
+            <input class="field-input" id="forgotEmail" type="email" placeholder="you@example.com">
+          </div>
+          <button class="btn-primary" onclick="doForgotPassword()">Send reset code</button>
+          <p style="text-align:center;margin:10px 0 0">
+            <button type="button" class="link-btn" onclick="showStep('login')">Back to log in</button>
+          </p>
+        </div>
+
+        <!-- Reset password (after forgot) -->
+        <div id="resetStep" style="display:none">
+          <div class="field-group">
+            <label class="field-label" for="resetOtp">Reset code</label>
+            <input class="field-input" id="resetOtp" type="text" maxlength="6" placeholder="6-digit code">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="resetPassword">New password</label>
+            <input class="field-input" id="resetPassword" type="password" placeholder="At least 8 characters">
+          </div>
+          <button class="btn-primary" onclick="doResetPassword()">Reset password</button>
+        </div>
+
+        <div class="form-divider" id="googleDivider">or</div>
+        <div id="googleBtn" class="google-btn-wrap"></div>
+
+        <p class="status-msg" id="statusMsg"></p>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script>
+    // Client ID is fetched from the backend's /config/public endpoint below,
+    // which reads it from .env - so it only ever needs to be set in one place.
+    let GOOGLE_CLIENT_ID = '';
+
+    let selectedRole = 'tenant';
+    let pendingEmail = '';
+
+    const STEPS = ['login', 'signup', 'verify', 'forgot', 'reset'];
+
+    const STEP_SUBTITLES = {
+      login: 'Log in to continue',
+      signup: 'Create your account',
+      verify: 'Verify your email',
+      forgot: 'Reset your password',
+      reset: 'Set a new password',
+    };
+
+    function selectRole(role) {
+      selectedRole = role;
+      document.getElementById('roleTenantBtn').classList.toggle('active', role === 'tenant');
+      document.getElementById('roleOwnerBtn').classList.toggle('active', role === 'owner');
+    }
+
+    function showStatus(message, type) {
+      const el = document.getElementById('statusMsg');
+      el.textContent = message;
+      el.className = 'status-msg' + (message ? ' show ' + type : '');
+    }
+
+    function showStep(step) {
+      STEPS.forEach(function (s) {
+        document.getElementById(s + 'Step').style.display = (s === step) ? 'block' : 'none';
+      });
+
+      document.getElementById('tabLoginBtn').classList.toggle('active', step === 'login');
+      document.getElementById('tabSignupBtn').classList.toggle('active', step === 'signup');
+
+      const isAccountStep = (step === 'login' || step === 'signup');
+      document.getElementById('authTabs').style.display = isAccountStep ? 'flex' : 'none';
+      document.getElementById('roleToggle').style.display = isAccountStep ? 'flex' : 'none';
+      document.getElementById('googleDivider').style.display = isAccountStep ? 'flex' : 'none';
+      document.getElementById('googleBtn').style.display = isAccountStep ? 'block' : 'none';
+
+      document.getElementById('formSub').textContent = STEP_SUBTITLES[step];
+      showStatus('', '');
+    }
+
+    function completeLogin(res) {
+      localStorage.setItem('rentora_token', res.access_token);
+      localStorage.setItem('rentora_role', res.role);
+      localStorage.setItem('rentora_user_id', res.user_id);
+
+      showStatus('Logged in as ' + res.role + '. Redirecting...', 'success');
+      setTimeout(function () {
+        window.location.href = res.role === 'owner' ? 'owner.html' : 'explore.html';
+      }, 600);
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) {
+        showStatus('Enter your email and password.', 'error');
+        return;
+      }
+      try {
+        const res = await apiPost('/auth/login', { email: email, password: password });
+        completeLogin(res);
+      } catch (err) {
+        pendingEmail = email;
+        showStatus('Incorrect email/password, or your email is not verified yet.', 'error');
+      }
+    }
+
+    async function doSignup() {
+      const name = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const password = document.getElementById('signupPassword').value;
+
+      if (!name || !email || !password) {
+        showStatus('Fill in all fields.', 'error');
+        return;
+      }
+      if (password.length < 8) {
+        showStatus('Password must be at least 8 characters.', 'error');
+        return;
+      }
+
+      try {
+        const res = await apiPost('/auth/signup', { name: name, email: email, password: password, role: selectedRole });
+        pendingEmail = email;
+        document.getElementById('verifyEmailLabel').textContent = email;
+        showStep('verify');
+        showStatus(res.otp ? ('Dev mode - your code is ' + res.otp) : 'Check your email for a verification code.', 'info');
+      } catch (err) {
+        showStatus('Could not create account. That email may already be registered.', 'error');
+      }
+    }
+
+    async function doVerifyEmail() {
+      const otp = document.getElementById('verifyOtp').value.trim();
+      if (!otp) {
+        showStatus('Enter the verification code.', 'error');
+        return;
+      }
+      try {
+        const res = await apiPost('/auth/verify-email', { email: pendingEmail, otp: otp });
+        completeLogin(res);
+      } catch (err) {
+        showStatus('Invalid or expired code.', 'error');
+      }
+    }
+
+    async function doForgotPassword() {
+      const email = document.getElementById('forgotEmail').value.trim();
+      if (!email) {
+        showStatus('Enter your email.', 'error');
+        return;
+      }
+      try {
+        const res = await apiPost('/auth/forgot-password', { email: email });
+        pendingEmail = email;
+        showStep('reset');
+        showStatus(res.otp ? ('Dev mode - your code is ' + res.otp) : res.message, 'info');
+      } catch (err) {
+        showStatus('Something went wrong. Please try again.', 'error');
+      }
+    }
+
+    async function doResetPassword() {
+      const otp = document.getElementById('resetOtp').value.trim();
+      const newPassword = document.getElementById('resetPassword').value;
+      if (!otp || !newPassword) {
+        showStatus('Fill in both fields.', 'error');
+        return;
+      }
+      if (newPassword.length < 8) {
+        showStatus('Password must be at least 8 characters.', 'error');
+        return;
+      }
+      try {
+        await apiPost('/auth/reset-password', { email: pendingEmail, otp: otp, new_password: newPassword });
+        showStatus('Password reset! You can log in now.', 'success');
+        setTimeout(function () { showStep('login'); }, 900);
+      } catch (err) {
+        showStatus('Invalid or expired code.', 'error');
+      }
+    }
+
+    async function handleGoogleLogin(response) {
+      try {
+        const res = await apiPost('/auth/google', {
+          credential: response.credential,
+          role: selectedRole,
+        });
+        completeLogin(res);
+      } catch (err) {
+        showStatus('Google login failed. Please try again.', 'error');
+      }
+    }
+
+    window.onload = async function () {
+      showStep('login');
+
+      try {
+        const config = await apiGet('/config/public');
+        GOOGLE_CLIENT_ID = config.google_client_id;
+      } catch (err) {
+        showStatus('Could not reach the server. Is the backend running?', 'error');
+        return;
+      }
+
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleLogin,
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('googleBtn'),
+        { theme: 'outline', size: 'large', width: 300 }
+      );
+    };
+  </script>
+</body>
+</html>
