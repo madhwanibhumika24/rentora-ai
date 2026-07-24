@@ -19,6 +19,11 @@ class BookingOut(BaseModel):
     status: BookingStatus
     move_in_date: Optional[date] = None
     created_at: datetime
+    property_id: Optional[int] = None
+    property_name: Optional[str] = None
+    city: Optional[str] = None
+    room_type: Optional[str] = None
+    rent_amount: Optional[float] = None
 
 
 class BookingStatusUpdate(BaseModel):

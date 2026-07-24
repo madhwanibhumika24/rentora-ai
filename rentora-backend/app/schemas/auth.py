@@ -1,17 +1,37 @@
-from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from app.models.user import UserRole
 
 
-class OtpRequest(BaseModel):
-    phone: str
+class SignupRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: UserRole = UserRole.tenant
 
 
-class OtpVerify(BaseModel):
-    phone: str
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
     otp: str
-    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str
     role: UserRole = UserRole.tenant
 
 

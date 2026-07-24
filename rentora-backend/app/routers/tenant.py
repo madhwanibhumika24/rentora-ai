@@ -19,6 +19,7 @@ def explore_rooms(
     city: Optional[str] = None,
     max_rent: Optional[float] = None,
     budget: Optional[float] = None,
+    room_type: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Room).join(Property).filter(Room.is_available == True)
@@ -26,6 +27,8 @@ def explore_rooms(
         query = query.filter(Property.city.ilike(f"%{city}%"))
     if max_rent is not None:
         query = query.filter(Room.rent_amount <= max_rent)
+    if room_type:
+        query = query.filter(Room.room_type == room_type)
     rooms = query.all()
 
     results = []
@@ -97,4 +100,20 @@ def list_my_bookings(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_tenant),
 ):
-    return db.query(Booking).filter(Booking.tenant_id == current_user.id).all()
+    bookings = db.query(Booking).filter(Booking.tenant_id == current_user.id).all()
+    results = []
+    for b in bookings:
+        results.append({
+            "id": b.id,
+            "tenant_id": b.tenant_id,
+            "room_id": b.room_id,
+            "status": b.status,
+            "move_in_date": b.move_in_date,
+            "created_at": b.created_at,
+            "property_id": b.room.property_id,
+            "property_name": b.room.property.name,
+            "city": b.room.property.city,
+            "room_type": b.room.room_type,
+            "rent_amount": float(b.room.rent_amount),
+        })
+    return results
