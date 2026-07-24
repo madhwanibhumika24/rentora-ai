@@ -1,9 +1,10 @@
 /* ===== Rentora frontend styles ===== */
 :root {
-  --brand: #3C3489;
-  --brand-light: #EEEDFE;
-  --brand-dark: #26215C;
-  --brand-mid: #7F77DD;
+  /* Navy & slate blue theme - one dark navy, one mid slate-blue accent */
+  --brand: #1B2A4A;
+  --brand-light: #E8EDF5;
+  --brand-dark: #0F1B33;
+  --brand-mid: #4A6FA5;
   --text-primary: #1a1a1a;
   --text-secondary: #6b6a63;
   --border: #e3e1db;
@@ -459,9 +460,9 @@ body.app-body {
 }
 
 .page-wrap {
-  max-width: 1080px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 28px 32px 60px;
 }
 
 .page-title {
@@ -768,6 +769,7 @@ body.app-body {
 }
 
 .complaint-form select,
+.complaint-form input,
 .complaint-form textarea {
   width: 100%;
   padding: 10px 12px;
@@ -811,4 +813,327 @@ body.app-body {
 .status-tag.resolved {
   background: var(--success-bg);
   color: var(--success);
+}
+
+/* ===== Page hero banners ===== */
+.page-hero {
+  position: relative;
+  border-radius: 20px;
+  padding: 30px 32px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-mid) 100%);
+}
+
+.page-hero::before,
+.page-hero::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.page-hero::before {
+  width: 260px;
+  height: 260px;
+  top: -130px;
+  right: -50px;
+}
+
+.page-hero::after {
+  width: 150px;
+  height: 150px;
+  bottom: -90px;
+  right: 160px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.page-hero.hero-property::before {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.page-hero.hero-owner {
+  background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%);
+}
+
+.page-hero-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.page-hero .page-title {
+  color: #fff;
+  font-size: 24px;
+  margin: 0 0 4px;
+}
+
+.page-hero .page-sub {
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 30px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  flex-wrap: wrap;
+}
+
+.hero-stat strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.hero-stat span {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.amenity-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.amenity-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 13px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ===== Two-column layout (main content + sidebar) ===== */
+.layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 20px;
+}
+
+@media (max-width: 860px) {
+  .side-col {
+    position: static;
+  }
+}
+
+.side-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  background: #fff;
+}
+
+.side-card.accent {
+  background: linear-gradient(135deg, var(--brand-light) 0%, #fff 100%);
+  border-color: var(--brand-mid);
+}
+
+.side-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.tip-item {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+  padding-left: 16px;
+  position: relative;
+  line-height: 1.55;
+}
+
+.tip-item::before {
+  content: "\2022";
+  position: absolute;
+  left: 0;
+  color: var(--brand-mid);
+  font-weight: 700;
+}
+
+.tip-item:last-child {
+  margin-bottom: 0;
+}
+
+.mini-cta {
+  display: block;
+  text-align: center;
+  margin-top: 4px;
+  padding: 11px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mini-cta:hover {
+  background: var(--brand-dark);
+}
+
+.city-bar-row {
+  margin-bottom: 10px;
+}
+
+.city-bar-row:last-child {
+  margin-bottom: 0;
+}
+
+.city-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.city-bar-track {
+  height: 6px;
+  border-radius: 4px;
+  background: var(--brand-light);
+  overflow: hidden;
+}
+
+.city-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--brand);
+}
+
+/* ===== Gradient stat card variants ===== */
+.stat-card.grad-purple {
+  background: linear-gradient(135deg, #101B33, #3A5480);
+  border: none;
+}
+.stat-card.grad-purple .stat-card-label { color: rgba(255, 255, 255, 0.78); }
+.stat-card.grad-purple .stat-card-value { color: #fff; }
+
+.stat-card.grad-warm {
+  background: linear-gradient(135deg, #374151, #64748B);
+  border: none;
+}
+.stat-card.grad-warm .stat-card-label { color: rgba(255, 255, 255, 0.85); }
+.stat-card.grad-warm .stat-card-value { color: #fff; }
+
+.stat-card.grad-teal {
+  background: linear-gradient(135deg, #0F4C5C, #1C7293);
+  border: none;
+}
+.stat-card.grad-teal .stat-card-label { color: rgba(255, 255, 255, 0.85); }
+.stat-card.grad-teal .stat-card-value { color: #fff; }
+
+.stat-card.grad-purple .stat-card-value.warn,
+.stat-card.grad-warm .stat-card-value.warn,
+.stat-card.grad-teal .stat-card-value.warn {
+  color: #fff;
+}
+
+/* ===== Small confirm dialog (used for logout, etc.) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 27, 51, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px 26px;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: var(--text-primary);
+}
+
+.modal-sub {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Form fields inside a modal (e.g. the "Add a room" form) use the same
+   look as the complaint-form fields, just scoped to .modal-box instead. */
+.modal-box select,
+.modal-box input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  margin-bottom: 12px;
+}
+
+/* Photo gallery on the tenant-facing property page. */
+.photo-gallery {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.photo-gallery img {
+  width: 160px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+/* Small round "x" button on top of a photo thumbnail, used to delete it. */
+.photo-remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
 }

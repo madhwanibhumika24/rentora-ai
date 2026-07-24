@@ -18,28 +18,53 @@
 </div>
 
 <div class="page-wrap">
-  <h1 class="page-title">Find your next PG</h1>
-  <p class="page-sub">AI-ranked by budget, location, and preferences</p>
-
-  <div class="filters-bar">
-    <input id="cityInput" type="text" placeholder="City (e.g. Pune)">
-    <input id="budgetInput" type="number" placeholder="Max budget (Rs)">
-    <button class="btn-primary" style="width:auto;padding:10px 18px" onclick="loadRooms()">Search</button>
-    <select id="sortSelect" class="sort-select" onchange="renderRooms()">
-      <option value="match">Sort: Best match</option>
-      <option value="price_low">Sort: Price low to high</option>
-      <option value="price_high">Sort: Price high to low</option>
-    </select>
+  <div class="page-hero hero-explore">
+    <div class="page-hero-inner">
+      <h1 class="page-title">Find your next PG</h1>
+      <p class="page-sub">AI-ranked by budget, location, and preferences</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><strong id="statTotalRooms">-</strong><span>Rooms found</span></div>
+        <div class="hero-stat"><strong id="statCities">-</strong><span>Cities covered</span></div>
+        <div class="hero-stat"><strong id="statAvgRent">-</strong><span>Avg. rent/mo</span></div>
+      </div>
+    </div>
   </div>
 
-  <div class="chip-row" id="cityChips"></div>
-  <div class="chip-row" id="typeChips"></div>
-  <div class="chip-row">
-    <button type="button" class="chip" id="savedChip" onclick="toggleSavedOnly()">&#9825; Saved only</button>
-  </div>
+  <div class="layout-grid">
+    <div>
+      <div class="filters-bar">
+        <input id="cityInput" type="text" placeholder="City (e.g. Pune)">
+        <input id="budgetInput" type="number" placeholder="Max budget (Rs)">
+        <button class="btn-primary" style="width:auto;padding:10px 18px" onclick="loadRooms()">Search</button>
+        <select id="sortSelect" class="sort-select" onchange="renderRooms()">
+          <option value="match">Sort: Best match</option>
+          <option value="price_low">Sort: Price low to high</option>
+          <option value="price_high">Sort: Price high to low</option>
+        </select>
+      </div>
 
-  <div id="roomGrid" class="card-grid"></div>
-  <div id="emptyState" class="empty-state" style="display:none"></div>
+      <div class="chip-row" id="cityChips"></div>
+      <div class="chip-row" id="typeChips"></div>
+      <div class="chip-row">
+        <button type="button" class="chip" id="savedChip" onclick="toggleSavedOnly()">&#9825; Saved only</button>
+      </div>
+
+      <div id="roomGrid" class="card-grid"></div>
+      <div id="emptyState" class="empty-state" style="display:none"></div>
+    </div>
+
+    <div class="side-col">
+      <div class="side-card accent">
+        <p class="side-card-title">Tips</p>
+        <p class="tip-item">Save rooms you like with the heart icon, then filter to "Saved only" to compare them side by side.</p>
+        <p class="tip-item">Rent shown is per bed, per month — confirm deposit terms with the owner before booking.</p>
+      </div>
+      <div class="side-card">
+        <p class="side-card-title">Popular cities right now</p>
+        <div id="cityLeaderboard"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="../js/api.js"></script>
@@ -142,7 +167,41 @@
         '<p class="empty-state-title">Could not load rooms</p>' +
         '<p class="empty-state-sub">Is the backend server running on port 8000?</p>';
       empty.style.display = 'block';
+      updateSideStats([]);
     }
+  }
+
+  function updateSideStats(rooms) {
+    document.getElementById('statTotalRooms').textContent = rooms.length;
+
+    const cities = {};
+    rooms.forEach(function (r) {
+      cities[r.city] = (cities[r.city] || 0) + 1;
+    });
+    const cityNames = Object.keys(cities);
+    document.getElementById('statCities').textContent = cityNames.length;
+
+    if (rooms.length) {
+      const avg = Math.round(rooms.reduce(function (sum, r) { return sum + r.rent_amount; }, 0) / rooms.length);
+      document.getElementById('statAvgRent').textContent = 'Rs ' + avg;
+    } else {
+      document.getElementById('statAvgRent').textContent = '-';
+    }
+
+    const board = document.getElementById('cityLeaderboard');
+    const sorted = Object.entries(cities).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 5);
+    if (!sorted.length) {
+      board.innerHTML = '<p class="tip-item" style="padding-left:0">No listings match your current search.</p>';
+      return;
+    }
+    const max = sorted[0][1];
+    board.innerHTML = sorted.map(function (c) {
+      const pct = Math.round((c[1] / max) * 100);
+      return '<div class="city-bar-row">' +
+        '<div class="city-bar-label"><span>' + c[0] + '</span><span style="color:var(--text-secondary)">' + c[1] + '</span></div>' +
+        '<div class="city-bar-track"><div class="city-bar-fill" style="width:' + pct + '%"></div></div>' +
+        '</div>';
+    }).join('');
   }
 
   function renderRooms() {
@@ -164,6 +223,7 @@
     }
 
     grid.innerHTML = '';
+    updateSideStats(rooms);
 
     if (!rooms.length) {
       const message = showSavedOnly

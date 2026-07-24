@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rentora - Dashboard</title>
 <link rel="stylesheet" href="../css/style.css">
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body class="app-body">
 
@@ -18,44 +19,65 @@
 </div>
 
 <div class="page-wrap">
-  <h1 class="page-title">My dashboard</h1>
-  <p class="page-sub">Your bookings, dues, and complaints</p>
+  <div class="page-hero hero-dashboard">
+    <div class="page-hero-inner">
+      <h1 class="page-title">Welcome back</h1>
+      <p class="page-sub">Here's what's happening with your stay</p>
+    </div>
+  </div>
 
   <div class="stat-cards">
-    <div class="stat-card">
+    <div class="stat-card grad-purple">
       <p class="stat-card-label">Active bookings</p>
       <p class="stat-card-value" id="statActiveBookings">-</p>
     </div>
-    <div class="stat-card">
+    <div class="stat-card grad-warm">
       <p class="stat-card-label">Pending dues</p>
       <p class="stat-card-value" id="statPendingDues">-</p>
     </div>
-    <div class="stat-card">
+    <div class="stat-card grad-teal">
       <p class="stat-card-label">Next due date</p>
       <p class="stat-card-value" id="statNextDue" style="font-size:16px">-</p>
     </div>
   </div>
 
-  <p class="section-title">Bookings</p>
-  <div id="bookingList"></div>
+  <div class="layout-grid" style="margin-top:26px">
+    <div>
+      <p class="section-title" style="margin-top:0">Bookings</p>
+      <div id="bookingList"></div>
 
-  <p class="section-title">Dues</p>
-  <div id="dueList"></div>
+      <p class="section-title">Dues</p>
+      <div id="dueList"></div>
 
-  <p class="section-title">Complaints</p>
-  <div class="complaint-form">
-    <select id="complaintCategory">
-      <option value="electrical">Electrical</option>
-      <option value="plumbing">Plumbing</option>
-      <option value="wifi">Wifi</option>
-      <option value="food">Food</option>
-      <option value="cleanliness">Cleanliness</option>
-      <option value="other">Other</option>
-    </select>
-    <textarea id="complaintDescription" placeholder="Describe the issue..."></textarea>
-    <button class="btn-primary" style="width:auto;padding:10px 18px" onclick="raiseComplaint()">Raise complaint</button>
+      <p class="section-title">Complaints</p>
+      <div class="complaint-form">
+        <select id="complaintCategory">
+          <option value="electrical">Electrical</option>
+          <option value="plumbing">Plumbing</option>
+          <option value="wifi">Wifi</option>
+          <option value="food">Food</option>
+          <option value="cleanliness">Cleanliness</option>
+          <option value="other">Other</option>
+        </select>
+        <textarea id="complaintDescription" placeholder="Describe the issue..."></textarea>
+        <button class="btn-primary" style="width:auto;padding:10px 18px" onclick="raiseComplaint()">Raise complaint</button>
+      </div>
+      <div id="complaintList"></div>
+    </div>
+
+    <div class="side-col">
+      <div class="side-card accent">
+        <p class="side-card-title">Quick actions</p>
+        <a class="mini-cta" href="explore.html">Explore more rooms</a>
+      </div>
+      <div class="side-card">
+        <p class="side-card-title">Tips for tenants</p>
+        <p class="tip-item">Pay dues before the due date to avoid late fees.</p>
+        <p class="tip-item">Most complaints are resolved within 48 hours — check back for status updates.</p>
+        <p class="tip-item">Keep this dashboard bookmarked to track bookings and dues in one place.</p>
+      </div>
+    </div>
   </div>
-  <div id="complaintList"></div>
 
   <p class="status-msg" id="statusMsg"></p>
 </div>
@@ -68,10 +90,35 @@
   let currentBookings = [];
   let currentDues = [];
 
+  // Filled in by loadConfig() below. If this stays empty, it means nobody
+  // has set up Razorpay yet, so we fall back to the simple dev-mode pay.
+  let razorpayKeyId = '';
+
+  async function loadConfig() {
+    try {
+      const cfg = await apiGet('/config/public');
+      razorpayKeyId = cfg.razorpay_key_id || '';
+    } catch (err) {
+      razorpayKeyId = '';
+    }
+  }
+
   function showStatus(message, type) {
     const el = document.getElementById('statusMsg');
     el.textContent = message;
     el.className = 'status-msg show ' + type;
+  }
+
+  // Small helper so every "could not load X" message looks the same:
+  // an icon, a title, and a button to try again.
+  // retryCall is a string like "loadDues()" that gets run when the button is clicked.
+  function errorCard(title, retryCall) {
+    return '<div class="empty-state">' +
+      '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg></div>' +
+      '<p class="empty-state-title">' + title + '</p>' +
+      '<p class="empty-state-sub">Check that the backend server is running, then try again.</p>' +
+      '<button class="btn-secondary btn-small" onclick="' + retryCall + '">Retry</button>' +
+      '</div>';
   }
 
   function updateStats() {
@@ -113,6 +160,7 @@
         if (b.room_type) meta.push(b.room_type);
         meta.push('Move-in: ' + (b.move_in_date || 'Not set'));
         if (b.rent_amount) meta.push('Rs ' + b.rent_amount + '/mo');
+
         return '<div class="booking-row">' +
           '<div><strong>' + title + '</strong>' +
           '<p class="room-meta" style="margin:2px 0 0">' + meta.join(' · ') + '</p></div>' +
@@ -121,7 +169,7 @@
       }).join('');
       updateStats();
     } catch (err) {
-      list.innerHTML = '<div class="empty-state"><p class="empty-state-title">Could not load bookings</p></div>';
+      list.innerHTML = errorCard('Could not load bookings', 'loadBookings()');
     }
   }
 
@@ -154,17 +202,59 @@
       }).join('');
       updateStats();
     } catch (err) {
-      list.innerHTML = '<div class="empty-state"><p class="empty-state-title">Could not load dues</p></div>';
+      list.innerHTML = errorCard('Could not load dues', 'loadDues()');
     }
   }
 
   async function payDue(dueId) {
+    // No Razorpay key configured yet -> just use the old instant "dev mode" pay.
+    if (!razorpayKeyId) {
+      try {
+        await apiPost('/tenant/dues/' + dueId + '/pay', {}, token);
+        showStatus('Payment successful! (dev mode - no payment gateway set up yet)', 'success');
+        loadDues();
+      } catch (err) {
+        showStatus('Payment failed. Please try again.', 'error');
+      }
+      return;
+    }
+
+    // Real gateway flow: ask backend for an order, open Razorpay's popup,
+    // then ask backend to verify the payment once the popup finishes.
     try {
-      await apiPost('/tenant/dues/' + dueId + '/pay', {}, token);
-      showStatus('Payment successful!', 'success');
-      loadDues();
+      const order = await apiPost('/tenant/dues/' + dueId + '/create-order', {}, token);
+
+      const checkout = new Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: 'Rentora',
+        description: 'Rent / due payment',
+        theme: { color: '#1B2A4A' },
+        handler: async function (result) {
+          try {
+            await apiPost('/tenant/dues/' + dueId + '/verify-payment', {
+              razorpay_order_id: result.razorpay_order_id,
+              razorpay_payment_id: result.razorpay_payment_id,
+              razorpay_signature: result.razorpay_signature,
+            }, token);
+            showStatus('Payment successful!', 'success');
+            loadDues();
+          } catch (err) {
+            showStatus('Payment went through but could not be verified. Please contact support.', 'error');
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            showStatus('Payment cancelled.', 'error');
+          },
+        },
+      });
+
+      checkout.open();
     } catch (err) {
-      showStatus('Payment failed. Please try again.', 'error');
+      showStatus('Could not start payment. Please try again.', 'error');
     }
   }
 
@@ -173,7 +263,12 @@
     try {
       const complaints = await apiGet('/tenant/complaints', token);
       if (!complaints.length) {
-        list.innerHTML = '<div class="empty-state"><p class="empty-state-title">No complaints raised yet</p></div>';
+        list.innerHTML =
+          '<div class="empty-state">' +
+          '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></div>' +
+          '<p class="empty-state-title">No complaints raised yet</p>' +
+          '<p class="empty-state-sub">Use the form above if something needs fixing in your room.</p>' +
+          '</div>';
         return;
       }
       list.innerHTML = complaints.slice().reverse().map(function (c) {
@@ -186,7 +281,7 @@
           '</div>';
       }).join('');
     } catch (err) {
-      list.innerHTML = '<div class="empty-state"><p class="empty-state-title">Could not load complaints</p></div>';
+      list.innerHTML = errorCard('Could not load complaints', 'loadComplaints()');
     }
   }
 
@@ -214,6 +309,7 @@
     }
   }
 
+  loadConfig();
   loadBookings();
   loadDues();
   loadComplaints();
