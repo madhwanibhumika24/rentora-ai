@@ -10,6 +10,7 @@ from app.models.room import Room
 from app.models.booking import Booking, BookingStatus
 from app.schemas.property import PropertyCreate, PropertyOut, RoomCreate, RoomOut
 from app.schemas.tenant import BookingOut, BookingStatusUpdate
+from app.services.ai import calculate_risk_score
 
 router = APIRouter(prefix="/owner", tags=["owner"])
 
@@ -124,3 +125,22 @@ def update_booking_status(
     db.commit()
     db.refresh(booking)
     return booking
+
+
+@router.get("/tenants/{tenant_id}/risk-score")
+def get_tenant_risk_score(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_owner),
+):
+    has_relation = (
+        db.query(Booking)
+        .join(Room)
+        .join(Property)
+        .filter(Booking.tenant_id == tenant_id, Property.owner_id == current_user.id)
+        .first()
+    )
+    if has_relation is None:
+        raise HTTPException(status_code=404, detail="Tenant not found under your properties")
+
+    return calculate_risk_score(db, tenant_id)
