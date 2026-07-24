@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import auth, owner, tenant, dues, complaints, messages, bot, community
+from app.routers import auth, owner, tenant, dues, complaints, messages, bot, community, admin
 
 app = FastAPI(
     title="Rentora API",
@@ -25,6 +25,7 @@ app.include_router(complaints.router)
 app.include_router(messages.router)
 app.include_router(bot.router)
 app.include_router(community.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

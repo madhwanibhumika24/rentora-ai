@@ -55,9 +55,11 @@ def pay_due(
     if due.status == DueStatus.paid:
         raise HTTPException(status_code=400, detail="Due already paid")
 
+    amount_to_charge = due.total_amount  # includes late fee if overdue
+
     payment = Payment(
         due_id=due.id,
-        amount=due.amount,
+        amount=amount_to_charge,
         method="upi",
         transaction_id=f"TXN{due.id:06d}",
     )

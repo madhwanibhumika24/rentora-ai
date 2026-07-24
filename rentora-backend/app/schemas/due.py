@@ -21,6 +21,8 @@ class DueOut(BaseModel):
     amount: float
     due_date: date
     status: DueStatus
+    late_fee: float
+    total_amount: float
 
 
 class PaymentOut(BaseModel):

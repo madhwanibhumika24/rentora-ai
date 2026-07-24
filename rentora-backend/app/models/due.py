@@ -1,8 +1,11 @@
 import enum
+from datetime import date
 from sqlalchemy import Column, Integer, ForeignKey, Numeric, Enum, Date, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+LATE_FEE_PER_DAY = 50
 
 
 class DueStatus(str, enum.Enum):
@@ -22,3 +25,17 @@ class Due(Base):
     status = Column(Enum(DueStatus), nullable=False, default=DueStatus.pending)
 
     payments = relationship("Payment", back_populates="due")
+
+    @property
+    def late_fee(self) -> float:
+        if self.status == DueStatus.paid:
+            return 0.0
+        today = date.today()
+        if today <= self.due_date:
+            return 0.0
+        days_overdue = (today - self.due_date).days
+        return float(days_overdue * LATE_FEE_PER_DAY)
+
+    @property
+    def total_amount(self) -> float:
+        return float(self.amount) + self.late_fee
