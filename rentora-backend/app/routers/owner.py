@@ -10,7 +10,7 @@ from app.models.room import Room
 from app.models.booking import Booking, BookingStatus
 from app.schemas.property import PropertyCreate, PropertyOut, RoomCreate, RoomOut
 from app.schemas.tenant import BookingOut, BookingStatusUpdate
-from app.services.ai import calculate_risk_score
+from app.services.ai import calculate_risk_score, suggest_price
 
 router = APIRouter(prefix="/owner", tags=["owner"])
 
@@ -144,3 +144,21 @@ def get_tenant_risk_score(
         raise HTTPException(status_code=404, detail="Tenant not found under your properties")
 
     return calculate_risk_score(db, tenant_id)
+
+
+@router.get("/rooms/{room_id}/price-suggestion")
+def get_price_suggestion(
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_owner),
+):
+    room = (
+        db.query(Room)
+        .join(Property)
+        .filter(Room.id == room_id, Property.owner_id == current_user.id)
+        .first()
+    )
+    if room is None:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    return suggest_price(db, room)

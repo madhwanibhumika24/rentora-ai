@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models.room import Room
+from app.models.property import Property
 from app.models.due import Due, DueStatus
 
 
@@ -65,4 +66,45 @@ def calculate_risk_score(db: Session, tenant_id: int) -> dict:
         "total_dues": total,
         "overdue_count": overdue_count,
         "late_paid_count": late_paid_count,
+    }
+
+
+def suggest_price(db: Session, room: Room) -> dict:
+    comparable_rents = (
+        db.query(Room.rent_amount)
+        .join(Property)
+        .filter(
+            Property.city == room.property.city,
+            Room.room_type == room.room_type,
+            Room.id != room.id,
+        )
+        .all()
+    )
+    rents = [float(r[0]) for r in comparable_rents]
+    current_rent = float(room.rent_amount)
+
+    if not rents:
+        return {
+            "current_rent": current_rent,
+            "suggested_rent": current_rent,
+            "comparable_count": 0,
+            "message": "Not enough comparable listings in this city yet to suggest a price.",
+        }
+
+    avg_rent = sum(rents) / len(rents)
+    suggested = round(avg_rent / 50) * 50
+
+    if current_rent < avg_rent * 0.9:
+        message = "Your rent is below market average - you could increase it."
+    elif current_rent > avg_rent * 1.1:
+        message = "Your rent is above market average - consider lowering it to stay competitive."
+    else:
+        message = "Your rent is well aligned with the market."
+
+    return {
+        "current_rent": current_rent,
+        "market_average": round(avg_rent, 2),
+        "suggested_rent": suggested,
+        "comparable_count": len(rents),
+        "message": message,
     }
