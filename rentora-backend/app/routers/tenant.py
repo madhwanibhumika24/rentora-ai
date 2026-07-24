@@ -44,6 +44,7 @@ def explore_rooms(
 
     results.sort(key=lambda r: r["match_score"], reverse=True)
     return results
+
 @router.get("/properties/{property_id}")
 def get_property_detail(property_id: int, db: Session = Depends(get_db)):
     property_obj = db.query(Property).filter(Property.id == property_id).first()
