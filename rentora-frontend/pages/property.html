@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rentora - Property</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="app-body">
+
+<div class="topnav">
+  <div class="nav-logo"><div class="logo-badge">R</div> Rentora</div>
+  <div class="nav-links">
+    <a class="nav-link" href="explore.html">Explore</a>
+    <a class="nav-link" href="dashboard.html">Dashboard</a>
+  </div>
+  <button class="nav-logout" onclick="logout()">Log out</button>
+</div>
+
+<div class="page-wrap">
+  <div id="propertyHeader"></div>
+  <p class="section-title">Available rooms</p>
+  <div id="roomList" class="card-grid"></div>
+  <p class="status-msg" id="statusMsg"></p>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  requireAuth();
+  const params = new URLSearchParams(location.search);
+  const propertyId = params.get('id');
+
+  function showStatus(message, type) {
+    const el = document.getElementById('statusMsg');
+    el.textContent = message;
+    el.className = 'status-msg show ' + type;
+  }
+
+  async function loadProperty() {
+    try {
+      const p = await apiGet('/tenant/properties/' + propertyId);
+      document.getElementById('propertyHeader').innerHTML =
+        '<h1 class="page-title">' + p.name + '</h1>' +
+        '<p class="page-sub">' + p.address + ', ' + p.city + (p.amenities ? ' · ' + p.amenities : '') + '</p>';
+
+      const list = document.getElementById('roomList');
+      list.innerHTML = '';
+      p.rooms.forEach(function (r) {
+        const card = document.createElement('div');
+        card.className = 'room-card';
+        card.innerHTML =
+          '<h3>' + r.room_type + ' room</h3>' +
+          '<p class="room-meta">' + r.bed_count + ' bed(s) · ' + (r.is_available ? 'Available' : 'Not available') + '</p>' +
+          '<p class="room-rent">Rs ' + r.rent_amount + '/mo</p>' +
+          '<button class="btn-primary" ' + (r.is_available ? '' : 'disabled') + ' onclick="book(' + r.id + ')">Book this room</button>';
+        list.appendChild(card);
+      });
+    } catch (err) {
+      showStatus('Could not load this property.', 'error');
+    }
+  }
+
+  async function book(roomId) {
+    try {
+      await apiPost('/tenant/bookings', { room_id: roomId }, getToken());
+      showStatus('Booking requested! Track it from your dashboard.', 'success');
+    } catch (err) {
+      showStatus('Could not book this room. Make sure you are logged in as a tenant.', 'error');
+    }
+  }
+
+  loadProperty();
+</script>
+</body>
+</html>

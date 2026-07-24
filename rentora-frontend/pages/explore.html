@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rentora - Explore</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="app-body">
+
+<div class="topnav">
+  <div class="nav-logo"><div class="logo-badge">R</div> Rentora</div>
+  <div class="nav-links">
+    <a class="nav-link active" href="explore.html">Explore</a>
+    <a class="nav-link" href="dashboard.html">Dashboard</a>
+  </div>
+  <button class="nav-logout" onclick="logout()">Log out</button>
+</div>
+
+<div class="page-wrap">
+  <h1 class="page-title">Find your next PG</h1>
+  <p class="page-sub">AI-ranked by budget, location, and preferences</p>
+
+  <div class="filters-bar">
+    <input id="cityInput" type="text" placeholder="City (e.g. Pune)">
+    <input id="budgetInput" type="number" placeholder="Max budget (Rs)">
+    <button class="btn-primary" style="width:auto;padding:10px 18px" onclick="loadRooms()">Search</button>
+    <select id="sortSelect" class="sort-select" onchange="renderRooms()">
+      <option value="match">Sort: Best match</option>
+      <option value="price_low">Sort: Price low to high</option>
+      <option value="price_high">Sort: Price high to low</option>
+    </select>
+  </div>
+
+  <div class="chip-row" id="cityChips"></div>
+  <div class="chip-row" id="typeChips"></div>
+  <div class="chip-row">
+    <button type="button" class="chip" id="savedChip" onclick="toggleSavedOnly()">&#9825; Saved only</button>
+  </div>
+
+  <div id="roomGrid" class="card-grid"></div>
+  <div id="emptyState" class="empty-state" style="display:none"></div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  requireAuth();
+
+  const CITIES = ['Pune', 'Mumbai', 'Bangalore', 'Delhi', 'Hyderabad', 'Chennai'];
+  const ROOM_TYPES = [
+    { value: '', label: 'Any type' },
+    { value: 'single', label: 'Single' },
+    { value: 'double', label: 'Double' },
+    { value: 'triple', label: 'Triple' },
+    { value: 'dorm', label: 'Dorm' },
+  ];
+
+  let selectedCity = '';
+  let selectedType = '';
+  let showSavedOnly = false;
+  let lastRooms = [];
+
+  function getFavorites() {
+    try {
+      return JSON.parse(localStorage.getItem('rentora_favorites') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function isFavorite(roomId) {
+    return getFavorites().includes(roomId);
+  }
+
+  function toggleFavorite(roomId) {
+    const favs = getFavorites();
+    const idx = favs.indexOf(roomId);
+    if (idx === -1) {
+      favs.push(roomId);
+    } else {
+      favs.splice(idx, 1);
+    }
+    localStorage.setItem('rentora_favorites', JSON.stringify(favs));
+    renderRooms();
+  }
+
+  function toggleSavedOnly() {
+    showSavedOnly = !showSavedOnly;
+    document.getElementById('savedChip').classList.toggle('active', showSavedOnly);
+    renderRooms();
+  }
+
+  function buildChips() {
+    const cityChips = document.getElementById('cityChips');
+    cityChips.innerHTML = CITIES.map(function (c) {
+      return '<button type="button" class="chip" data-city="' + c + '" onclick="selectCity(\'' + c + '\')">' + c + '</button>';
+    }).join('');
+
+    const typeChips = document.getElementById('typeChips');
+    typeChips.innerHTML = ROOM_TYPES.map(function (t) {
+      const activeClass = t.value === selectedType ? ' active' : '';
+      return '<button type="button" class="chip' + activeClass + '" data-type="' + t.value + '" onclick="selectType(\'' + t.value + '\')">' + t.label + '</button>';
+    }).join('');
+  }
+
+  function selectCity(city) {
+    selectedCity = (selectedCity === city) ? '' : city;
+    document.getElementById('cityInput').value = selectedCity;
+    document.querySelectorAll('#cityChips .chip').forEach(function (el) {
+      el.classList.toggle('active', el.dataset.city === selectedCity);
+    });
+    loadRooms();
+  }
+
+  function selectType(type) {
+    selectedType = type;
+    document.querySelectorAll('#typeChips .chip').forEach(function (el) {
+      el.classList.toggle('active', el.dataset.type === type);
+    });
+    loadRooms();
+  }
+
+  async function loadRooms() {
+    const cityFromInput = document.getElementById('cityInput').value.trim();
+    const budget = document.getElementById('budgetInput').value.trim();
+    let path = '/tenant/explore?';
+    if (cityFromInput) path += 'city=' + encodeURIComponent(cityFromInput) + '&';
+    if (budget) path += 'budget=' + encodeURIComponent(budget) + '&';
+    if (selectedType) path += 'room_type=' + encodeURIComponent(selectedType) + '&';
+
+    const empty = document.getElementById('emptyState');
+    empty.style.display = 'none';
+
+    try {
+      lastRooms = await apiGet(path);
+      renderRooms();
+    } catch (err) {
+      lastRooms = [];
+      document.getElementById('roomGrid').innerHTML = '';
+      empty.innerHTML =
+        '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg></div>' +
+        '<p class="empty-state-title">Could not load rooms</p>' +
+        '<p class="empty-state-sub">Is the backend server running on port 8000?</p>';
+      empty.style.display = 'block';
+    }
+  }
+
+  function renderRooms() {
+    const grid = document.getElementById('roomGrid');
+    const empty = document.getElementById('emptyState');
+    const sortBy = document.getElementById('sortSelect').value;
+
+    let rooms = lastRooms.slice();
+    if (showSavedOnly) {
+      rooms = rooms.filter(function (r) { return isFavorite(r.id); });
+    }
+
+    if (sortBy === 'price_low') {
+      rooms.sort(function (a, b) { return a.rent_amount - b.rent_amount; });
+    } else if (sortBy === 'price_high') {
+      rooms.sort(function (a, b) { return b.rent_amount - a.rent_amount; });
+    } else {
+      rooms.sort(function (a, b) { return b.match_score - a.match_score; });
+    }
+
+    grid.innerHTML = '';
+
+    if (!rooms.length) {
+      const message = showSavedOnly
+        ? { title: 'No saved rooms yet', sub: 'Tap the heart on any room to save it for later.' }
+        : { title: 'No rooms match yet', sub: 'Try a different city, or raise your budget to see more listings.' };
+      empty.innerHTML =
+        '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg></div>' +
+        '<p class="empty-state-title">' + message.title + '</p>' +
+        '<p class="empty-state-sub">' + message.sub + '</p>';
+      empty.style.display = 'block';
+      return;
+    }
+
+    empty.style.display = 'none';
+
+    rooms.forEach(function (r) {
+      const card = document.createElement('div');
+      card.className = 'room-card';
+      const favActive = isFavorite(r.id) ? ' active' : '';
+      card.innerHTML =
+        '<button type="button" class="fav-btn' + favActive + '" onclick="toggleFavorite(' + r.id + ')">' +
+        '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8Z"></path></svg>' +
+        '</button>' +
+        '<span class="match-badge">' + r.match_score + '% match</span>' +
+        '<h3>' + r.property_name + '</h3>' +
+        '<p class="room-meta">' + r.city + ' · ' + r.room_type + ' · ' + r.bed_count + ' bed(s)</p>' +
+        '<p class="room-rent">Rs ' + r.rent_amount + '/mo</p>' +
+        '<button class="btn-secondary btn-small" onclick="location.href=\'property.html?id=' + r.property_id + '\'">View property</button>';
+      grid.appendChild(card);
+    });
+  }
+
+  buildChips();
+  loadRooms();
+</script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rentora - Dashboard</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="app-body">
+
+<div class="topnav">
+  <div class="nav-logo"><div class="logo-badge">R</div> Rentora</div>
+  <div class="nav-links">
+    <a class="nav-link" href="explore.html">Explore</a>
+    <a class="nav-link active" href="dashboard.html">Dashboard</a>
+  </div>
+  <button class="nav-logout" onclick="logout()">Log out</button>
+</div>
+
+<div class="page-wrap">
+  <h1 class="page-title">My dashboard</h1>
+  <p class="page-sub">Your bookings, dues, and complaints</p>
+
+  <div class="stat-cards">
+    <div class="stat-card">
+      <p class="stat-card-label">Active bookings</p>
+      <p class="stat-card-value" id="statActiveBookings">-</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Pending dues</p>
+      <p class="stat-card-value" id="statPendingDues">-</p>
+    </div>
+    <div class="stat-card">
+      <p class="stat-card-label">Next due date</p>
+      <p class="stat-card-value" id="statNextDue" style="font-size:16px">-</p>
+    </div>
+  </div>
+
+  <p class="section-title">Bookings</p>
+  <div id="bookingList"></div>
+
+  <p class="section-title">Dues</p>
+  <div id="dueList"></div>
+
+  <p class="section-title">Complaints</p>
+  <div class="complaint-form">
+    <select id="complaintCategory">
+      <option value="electrical">Electrical</option>
+      <option value="plumbing">Plumbing</option>
+      <option value="wifi">Wifi</option>
+      <option value="food">Food</option>
+      <option value="cleanliness">Cleanliness</option>
+      <option value="other">Other</option>
+    </select>
+    <textarea id="complaintDescription" placeholder="Describe the issue..."></textarea>
+    <button class="btn-primary" style="width:auto;padding:10px 18px" onclick="raiseComplaint()">Raise complaint</button>
+  </div>
+  <div id="complaintList"></div>
+
+  <p class="status-msg" id="statusMsg"></p>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  requireAuth();
+  const token = getToken();
+
+  let currentBookings = [];
+  let currentDues = [];
+
+  function showStatus(message, type) {
+    const el = document.getElementById('statusMsg');
+    el.textContent = message;
+    el.className = 'status-msg show ' + type;
+  }
+
+  function updateStats() {
+    const activeCount = currentBookings.filter(function (b) { return b.status !== 'cancelled'; }).length;
+    document.getElementById('statActiveBookings').textContent = activeCount;
+
+    const unpaid = currentDues.filter(function (d) { return d.status !== 'paid'; });
+    const pendingTotal = unpaid.reduce(function (sum, d) { return sum + d.total_amount; }, 0);
+    const pendingEl = document.getElementById('statPendingDues');
+    pendingEl.textContent = 'Rs ' + pendingTotal;
+    pendingEl.classList.toggle('warn', pendingTotal > 0);
+
+    if (unpaid.length) {
+      const sorted = unpaid.slice().sort(function (a, b) { return new Date(a.due_date) - new Date(b.due_date); });
+      document.getElementById('statNextDue').textContent = sorted[0].due_date;
+    } else {
+      document.getElementById('statNextDue').textContent = 'None';
+    }
+  }
+
+  async function loadBookings() {
+    const list = document.getElementById('bookingList');
+    try {
+      currentBookings = await apiGet('/tenant/bookings', token);
+      if (!currentBookings.length) {
+        list.innerHTML =
+          '<div class="empty-state">' +
+          '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></div>' +
+          '<p class="empty-state-title">No bookings yet</p>' +
+          '<p class="empty-state-sub">Once you book a room, it will show up here.</p>' +
+          '<button class="btn-secondary btn-small" onclick="location.href=\'explore.html\'">Explore rooms</button>' +
+          '</div>';
+        updateStats();
+        return;
+      }
+      list.innerHTML = currentBookings.map(function (b) {
+        const title = b.property_name ? (b.property_name + (b.city ? ' · ' + b.city : '')) : ('Room #' + b.room_id);
+        const meta = [];
+        if (b.room_type) meta.push(b.room_type);
+        meta.push('Move-in: ' + (b.move_in_date || 'Not set'));
+        if (b.rent_amount) meta.push('Rs ' + b.rent_amount + '/mo');
+        return '<div class="booking-row">' +
+          '<div><strong>' + title + '</strong>' +
+          '<p class="room-meta" style="margin:2px 0 0">' + meta.join(' · ') + '</p></div>' +
+          '<span class="status-tag ' + b.status + '">' + b.status + '</span>' +
+          '</div>';
+      }).join('');
+      updateStats();
+    } catch (err) {
+      list.innerHTML = '<div class="empty-state"><p class="empty-state-title">Could not load bookings</p></div>';
+    }
+  }
+
+  async function loadDues() {
+    const list = document.getElementById('dueList');
+    try {
+      currentDues = await apiGet('/tenant/dues', token);
+      if (!currentDues.length) {
+        list.innerHTML =
+          '<div class="empty-state">' +
+          '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17l-3-2-3 2-3-2-3 2V2Z"></path><path d="M9 8h6M9 12h6"></path></svg></div>' +
+          '<p class="empty-state-title">No dues yet</p>' +
+          '<p class="empty-state-sub">Rent and other charges from your owner will appear here.</p>' +
+          '</div>';
+        updateStats();
+        return;
+      }
+      list.innerHTML = currentDues.map(function (d) {
+        const lateFeeNote = d.late_fee > 0 ? ' · Rs ' + d.late_fee + ' late fee' : '';
+        const rightSide = d.status === 'paid'
+          ? '<span class="status-tag paid">paid</span>'
+          : '<button class="btn-secondary btn-small" onclick="payDue(' + d.id + ')">Pay now</button>';
+        return '<div class="due-row">' +
+          '<div><strong>' + d.category + '</strong>' +
+          '<p class="room-meta" style="margin:2px 0 0">Due ' + d.due_date + lateFeeNote + '</p></div>' +
+          '<div style="text-align:right">' +
+          '<p class="due-amount" style="margin:0 0 6px">Rs ' + d.total_amount + '</p>' +
+          rightSide +
+          '</div></div>';
+      }).join('');
+      updateStats();
+    } catch (err) {
+      list.innerHTML = '<div class="empty-state"><p class="empty-state-title">Could not load dues</p></div>';
+    }
+  }
+
+  async function payDue(dueId) {
+    try {
+      await apiPost('/tenant/dues/' + dueId + '/pay', {}, token);
+      showStatus('Payment successful!', 'success');
+      loadDues();
+    } catch (err) {
+      showStatus('Payment failed. Please try again.', 'error');
+    }
+  }
+
+  async function loadComplaints() {
+    const list = document.getElementById('complaintList');
+    try {
+      const complaints = await apiGet('/tenant/complaints', token);
+      if (!complaints.length) {
+        list.innerHTML = '<div class="empty-state"><p class="empty-state-title">No complaints raised yet</p></div>';
+        return;
+      }
+      list.innerHTML = complaints.slice().reverse().map(function (c) {
+        return '<div class="complaint-row">' +
+          '<div class="complaint-row-top">' +
+          '<strong style="text-transform:capitalize">' + c.category + '</strong>' +
+          '<span class="status-tag ' + c.status + '">' + c.status.replace('_', ' ') + '</span>' +
+          '</div>' +
+          (c.description ? '<p class="room-meta" style="margin:0">' + c.description + '</p>' : '') +
+          '</div>';
+      }).join('');
+    } catch (err) {
+      list.innerHTML = '<div class="empty-state"><p class="empty-state-title">Could not load complaints</p></div>';
+    }
+  }
+
+  async function raiseComplaint() {
+    const category = document.getElementById('complaintCategory').value;
+    const description = document.getElementById('complaintDescription').value.trim();
+
+    const activeBooking = currentBookings.find(function (b) { return b.status !== 'cancelled'; });
+    if (!activeBooking || !activeBooking.property_id) {
+      showStatus('You need an active booking before raising a complaint.', 'error');
+      return;
+    }
+
+    try {
+      await apiPost('/tenant/complaints', {
+        property_id: activeBooking.property_id,
+        category: category,
+        description: description || null,
+      }, token);
+      document.getElementById('complaintDescription').value = '';
+      showStatus('Complaint raised!', 'success');
+      loadComplaints();
+    } catch (err) {
+      showStatus('Could not raise complaint.', 'error');
+    }
+  }
+
+  loadBookings();
+  loadDues();
+  loadComplaints();
+</script>
+</body>
+</html>
