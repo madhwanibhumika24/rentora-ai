@@ -51,6 +51,8 @@
         <input id="propCity" type="text" placeholder="City">
         <input id="propAddress" type="text" placeholder="Address">
         <input id="propAmenities" type="text" placeholder="Amenities (optional)">
+        <input id="propFloors" type="number" min="1" placeholder="Total floors (optional)">
+        <input id="propRooms" type="number" min="1" placeholder="Total rooms (optional)">
         <button class="btn-primary" style="width:auto;padding:10px 18px" onclick="addProperty()">Add property</button>
       </div>
 
@@ -131,6 +133,11 @@
     const city = document.getElementById('propCity').value.trim();
     const address = document.getElementById('propAddress').value.trim();
     const amenities = document.getElementById('propAmenities').value.trim();
+    const floorsInput = document.getElementById('propFloors').value.trim();
+    const roomsInput = document.getElementById('propRooms').value.trim();
+    // Both optional - only sent if the owner actually typed a number in.
+    const totalFloors = floorsInput ? parseInt(floorsInput, 10) : null;
+    const totalRooms = roomsInput ? parseInt(roomsInput, 10) : null;
 
     if (!name || !city || !address) {
       showStatus('Name, city and address are required.', 'error');
@@ -138,12 +145,21 @@
     }
 
     try {
-      await apiPost('/owner/properties', { name: name, city: city, address: address, amenities: amenities || null }, token);
+      await apiPost('/owner/properties', {
+        name: name,
+        city: city,
+        address: address,
+        amenities: amenities || null,
+        total_floors: totalFloors,
+        total_rooms: totalRooms,
+      }, token);
       showStatus('Property added!', 'success');
       document.getElementById('propName').value = '';
       document.getElementById('propCity').value = '';
       document.getElementById('propAddress').value = '';
       document.getElementById('propAmenities').value = '';
+      document.getElementById('propFloors').value = '';
+      document.getElementById('propRooms').value = '';
       loadProperties();
     } catch (err) {
       showStatus('Could not add property. Make sure you are logged in as an owner.', 'error');
@@ -175,24 +191,41 @@
           .filter(function (r) { return r.is_available; })
           .reduce(function (sum, r) { return sum + r.bed_count; }, 0);
 
+        // Show floor and room number for each room, but only the parts the
+        // owner actually filled in - otherwise it's a plain list like before.
         const roomLines = rooms.map(function (r) {
+          const floorPrefix = (r.floor_number !== null && r.floor_number !== undefined)
+            ? 'Floor ' + r.floor_number + ' · '
+            : '';
+          const roomNumberPrefix = r.room_number ? 'Room ' + r.room_number + ' · ' : '';
           return '<p class="room-meta" style="margin:2px 0">' +
-            r.room_type + ' · ' + r.bed_count + ' bed(s) · Rs ' + r.rent_amount + '/mo · ' +
+            floorPrefix + roomNumberPrefix + r.room_type + ' · ' + r.bed_count + ' bed(s) · Rs ' + r.rent_amount + '/mo · ' +
             (r.is_available ? 'Vacant' : 'Occupied') +
             '</p>';
         }).join('');
+
+        // These are just the rough totals the owner typed in when adding
+        // the property - separate from the actual room list below, which
+        // is built one room at a time.
+        const totalsParts = [];
+        if (p.total_floors) totalsParts.push(p.total_floors + ' floor(s)');
+        if (p.total_rooms) totalsParts.push(p.total_rooms + ' room(s)');
+        const floorsLine = totalsParts.length
+          ? '<p class="room-meta" style="margin:2px 0 8px">' + totalsParts.join(' · ') + ' total</p>'
+          : '';
 
         cards.push(
           '<div class="room-card">' +
           '<h3>' + p.name + '</h3>' +
           '<p class="room-meta">' + p.address + ', ' + p.city + '</p>' +
+          floorsLine +
           '<p class="room-meta" style="font-weight:600;color:var(--brand-dark)">' + totalBeds + ' beds total · ' + vacantBeds + ' vacant</p>' +
           roomLines +
-          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">' +
-          '<button class="btn-secondary btn-small" onclick="addRoom(' + p.id + ')">Add a room</button>' +
-          '<button class="btn-secondary btn-small" onclick="showEditFeatures(' + p.id + ')">Edit features</button>' +
-          '<button class="btn-secondary btn-small" onclick="showManagePhotos(' + p.id + ')">Manage photos</button>' +
-          '<button class="btn-secondary btn-small" onclick="showManageRules(' + p.id + ')">Manage rules</button>' +
+          '<div class="card-actions">' +
+          '<button class="btn-secondary btn-small" onclick="addRoom(' + p.id + ')">Add room</button>' +
+          '<button class="btn-secondary btn-small" onclick="showEditDetails(' + p.id + ')">Edit details</button>' +
+          '<button class="btn-secondary btn-small" style="grid-column:1 / -1" onclick="showPropertyDetails(' + p.id + ')">View details (photos, features, rules)</button>' +
+          '<button class="btn-secondary btn-small" style="grid-column:1 / -1;border-color:var(--danger);color:var(--danger)" onclick="deleteProperty(' + p.id + ', \'' + p.name.replace(/'/g, "\\'") + '\')">Delete property</button>' +
           '</div>' +
           '</div>'
         );
@@ -203,8 +236,36 @@
     }
   }
 
+  // Deleting a property is permanent - it takes every room, photo, rule,
+  // and booking request under it with it. Always confirm first, the same
+  // way logout and booking do, so nobody loses data with one misclick.
+  function deleteProperty(propertyId, propertyName) {
+    showConfirm(
+      'Delete "' + propertyName + '"?',
+      'This removes the property, all its rooms, photos, rules, and booking requests. This cannot be undone.',
+      'Delete property',
+      async function () {
+        try {
+          await apiDelete('/owner/properties/' + propertyId, token);
+          showStatus('Property deleted.', 'success');
+          loadProperties();
+          loadBookings();
+        } catch (err) {
+          showStatus(err.message, 'error');
+        }
+      }
+    );
+  }
+
+  // "Single", "Double sharing", "Triple sharing" already tell you the bed
+  // count - single always means 1 bed, double always means 2, and so on.
+  // So the form doesn't ask for a bed count separately for those; it just
+  // fills it in automatically. Dorms are the one exception, since a dorm
+  // can have any number of beds, so that still needs a manual number.
+  const ROOM_TYPE_BEDS = { single: 1, double: 2, triple: 3 };
+
   // Small form (in the same style as the logout/booking confirm boxes)
-  // that asks for room type, total beds, and rent before adding a room.
+  // that asks for room type and rent before adding a room.
   function addRoom(propertyId) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -213,19 +274,41 @@
       '<p class="modal-title">Add a room</p>' +
       '<p class="modal-sub">Tell tenants what this room offers.</p>' +
       '<select id="roomTypeInput">' +
-      '<option value="single">Single</option>' +
-      '<option value="double" selected>Double</option>' +
-      '<option value="triple">Triple</option>' +
-      '<option value="dorm">Dorm</option>' +
+      '<option value="single">Single (no sharing)</option>' +
+      '<option value="double" selected>Double sharing</option>' +
+      '<option value="triple">Triple sharing</option>' +
+      '<option value="dorm">Dorm sharing</option>' +
       '</select>' +
-      '<input id="roomBedCount" type="number" min="1" placeholder="Total beds in this room">' +
+      '<input id="roomBedCount" type="number" min="1" placeholder="Total beds in this dorm">' +
       '<input id="roomRent" type="number" min="0" placeholder="Rent per bed (Rs / month)">' +
+      '<input id="roomFloorInput" type="number" min="1" placeholder="Floor number (optional)">' +
+      '<input id="roomNumberInput" type="text" placeholder="Room number (optional, e.g. 101)">' +
       '<div class="modal-actions">' +
       '<button class="btn-secondary btn-small" id="roomCancelBtn">Cancel</button>' +
       '<button class="btn-primary" style="width:auto;padding:9px 18px" id="roomSubmitBtn">Add room</button>' +
       '</div>' +
       '</div>';
     document.body.appendChild(overlay);
+
+    const roomTypeSelect = document.getElementById('roomTypeInput');
+    const bedCountInput = document.getElementById('roomBedCount');
+
+    // Show the bed count box only for dorms - for single/double/triple
+    // the bed count is filled in automatically and hidden, since asking
+    // for it would just be asking the owner to repeat what they already
+    // picked in the dropdown above.
+    function syncBedCountField() {
+      const type = roomTypeSelect.value;
+      if (type === 'dorm') {
+        bedCountInput.style.display = 'block';
+        bedCountInput.value = '';
+      } else {
+        bedCountInput.style.display = 'none';
+        bedCountInput.value = ROOM_TYPE_BEDS[type];
+      }
+    }
+    syncBedCountField();
+    roomTypeSelect.addEventListener('change', syncBedCountField);
 
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) {
@@ -241,6 +324,11 @@
       const roomType = document.getElementById('roomTypeInput').value;
       const bedCount = parseInt(document.getElementById('roomBedCount').value, 10);
       const rent = parseFloat(document.getElementById('roomRent').value);
+      const floorInput = document.getElementById('roomFloorInput').value.trim();
+      const roomNumberInput = document.getElementById('roomNumberInput').value.trim();
+      // Both optional - only sent if the owner actually typed something in.
+      const floorNumber = floorInput ? parseInt(floorInput, 10) : null;
+      const roomNumber = roomNumberInput || null;
 
       if (!bedCount || bedCount < 1 || isNaN(rent) || rent < 0) {
         showStatus('Enter a valid bed count and rent.', 'error');
@@ -252,6 +340,8 @@
           room_type: roomType,
           bed_count: bedCount,
           rent_amount: rent,
+          floor_number: floorNumber,
+          room_number: roomNumber,
         }, token);
         overlay.remove();
         showStatus('Room added!', 'success');
@@ -262,47 +352,73 @@
     });
   }
 
-  // ----- Editing features (amenities) -----
+  // ----- Editing a property's basic details (name, city, address) -----
+  // Useful for fixing typos after the fact - e.g. a city typed as
+  // "Banglore" instead of "Bangalore" won't match the city filter on the
+  // explore page, so this lets an owner correct it without having to
+  // delete and recreate the whole property.
 
-  function showEditFeatures(propertyId) {
+  function showEditDetails(propertyId) {
     const property = currentProperties.find(function (p) { return p.id === propertyId; });
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML =
       '<div class="modal-box">' +
-      '<p class="modal-title">Edit features</p>' +
-      '<p class="modal-sub">Comma-separated, e.g. Wifi, Food, Laundry, AC</p>' +
-      '<input id="featuresInput" type="text" placeholder="Wifi, Food, Laundry">' +
+      '<p class="modal-title">Edit property details</p>' +
+      '<p class="modal-sub">Fix a typo or update the name, city, or address.</p>' +
+      '<input id="editNameInput" type="text" placeholder="Property name">' +
+      '<input id="editCityInput" type="text" placeholder="City">' +
+      '<input id="editAddressInput" type="text" placeholder="Address">' +
       '<div class="modal-actions">' +
-      '<button class="btn-secondary btn-small" id="featuresCancelBtn">Cancel</button>' +
-      '<button class="btn-primary" style="width:auto;padding:9px 18px" id="featuresSaveBtn">Save</button>' +
+      '<button class="btn-secondary btn-small" id="editDetailsCancelBtn">Cancel</button>' +
+      '<button class="btn-primary" style="width:auto;padding:9px 18px" id="editDetailsSaveBtn">Save</button>' +
       '</div>' +
       '</div>';
     document.body.appendChild(overlay);
 
-    // Set the current value with .value instead of baking it into the HTML
-    // string above - that way commas or quotes in it can't break anything.
-    document.getElementById('featuresInput').value = property ? (property.amenities || '') : '';
+    // Fill in with .value instead of baking it into the HTML string above,
+    // so quotes or special characters in the name/address can't break it.
+    document.getElementById('editNameInput').value = property ? property.name : '';
+    document.getElementById('editCityInput').value = property ? property.city : '';
+    document.getElementById('editAddressInput').value = property ? property.address : '';
 
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) overlay.remove();
     });
-    document.getElementById('featuresCancelBtn').addEventListener('click', function () {
+    document.getElementById('editDetailsCancelBtn').addEventListener('click', function () {
       overlay.remove();
     });
-    document.getElementById('featuresSaveBtn').addEventListener('click', async function () {
-      const value = document.getElementById('featuresInput').value.trim();
+    document.getElementById('editDetailsSaveBtn').addEventListener('click', async function () {
+      const name = document.getElementById('editNameInput').value.trim();
+      const city = document.getElementById('editCityInput').value.trim();
+      const address = document.getElementById('editAddressInput').value.trim();
+
+      if (!name || !city || !address) {
+        showStatus('Name, city and address cannot be empty.', 'error');
+        return;
+      }
+
       try {
-        await apiPatch('/owner/properties/' + propertyId, { amenities: value }, token);
+        await apiPatch('/owner/properties/' + propertyId, { name: name, city: city, address: address }, token);
         overlay.remove();
-        showStatus('Features updated!', 'success');
+        showStatus('Property details updated!', 'success');
         loadProperties();
       } catch (err) {
         showStatus(err.message, 'error');
       }
     });
   }
+
+  // The common ones get a tick-box each, so adding several features is
+  // just a few clicks instead of typing them all out by hand. Anything
+  // else the owner wants that isn't in this list still goes in the
+  // "Other" box below the grid.
+  const COMMON_FEATURES = [
+    'Wifi', 'Food', 'Laundry', 'AC', 'Parking', 'Power backup',
+    'Geyser', 'CCTV security', 'Furnished', 'Housekeeping',
+    'Gym room', 'Dance room', 'Study room',
+  ];
 
   // ----- Managing photos -----
 
@@ -342,47 +458,6 @@
     return res.json();
   }
 
-  function showManagePhotos(propertyId) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML =
-      '<div class="modal-box" style="max-width:420px">' +
-      '<p class="modal-title">Manage photos</p>' +
-      '<p class="modal-sub">Optional - upload a few so tenants can see the place before booking.</p>' +
-      '<div id="photoGrid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px"></div>' +
-      '<input id="photoFileInput" type="file" accept="image/*">' +
-      '<div class="modal-actions">' +
-      '<button class="btn-secondary btn-small" id="photoCloseBtn">Close</button>' +
-      '<button class="btn-primary" style="width:auto;padding:9px 18px" id="photoUploadBtn">Upload</button>' +
-      '</div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) overlay.remove();
-    });
-    document.getElementById('photoCloseBtn').addEventListener('click', function () {
-      overlay.remove();
-    });
-    document.getElementById('photoUploadBtn').addEventListener('click', async function () {
-      const fileInput = document.getElementById('photoFileInput');
-      if (!fileInput.files.length) {
-        showStatus('Choose a photo first.', 'error');
-        return;
-      }
-      try {
-        await uploadPhoto(propertyId, fileInput.files[0]);
-        fileInput.value = '';
-        showStatus('Photo uploaded!', 'success');
-        refreshPhotoGrid(propertyId);
-      } catch (err) {
-        showStatus(err.message, 'error');
-      }
-    });
-
-    refreshPhotoGrid(propertyId);
-  }
-
   function deletePhoto(propertyId, photoId) {
     showConfirm(
       'Delete this photo?',
@@ -419,48 +494,11 @@
           '</div>';
       }).join('');
     } catch (err) {
-      list.innerHTML = '<p class="room-meta" style="margin:0">Could not load rules.</p>';
+      // Show the real backend reason instead of a generic message - makes
+      // it much easier to tell "no rules yet" apart from an actual error
+      // (e.g. the rules table not existing yet on this database).
+      list.innerHTML = '<p class="room-meta" style="margin:0">Could not load rules: ' + err.message + '</p>';
     }
-  }
-
-  function showManageRules(propertyId) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML =
-      '<div class="modal-box" style="max-width:380px">' +
-      '<p class="modal-title">House rules</p>' +
-      '<p class="modal-sub">Optional - let tenants know what to expect before they book.</p>' +
-      '<div id="rulesList" style="margin-bottom:14px"></div>' +
-      '<input id="ruleTextInput" type="text" placeholder="e.g. No smoking inside">' +
-      '<div class="modal-actions">' +
-      '<button class="btn-secondary btn-small" id="rulesCloseBtn">Close</button>' +
-      '<button class="btn-primary" style="width:auto;padding:9px 18px" id="ruleAddBtn">Add rule</button>' +
-      '</div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) overlay.remove();
-    });
-    document.getElementById('rulesCloseBtn').addEventListener('click', function () {
-      overlay.remove();
-    });
-    document.getElementById('ruleAddBtn').addEventListener('click', async function () {
-      const text = document.getElementById('ruleTextInput').value.trim();
-      if (!text) {
-        showStatus('Type a rule first.', 'error');
-        return;
-      }
-      try {
-        await apiPost('/owner/properties/' + propertyId + '/rules', { text: text }, token);
-        document.getElementById('ruleTextInput').value = '';
-        refreshRulesList(propertyId);
-      } catch (err) {
-        showStatus(err.message, 'error');
-      }
-    });
-
-    refreshRulesList(propertyId);
   }
 
   function deleteRule(propertyId, ruleId) {
@@ -477,6 +515,150 @@
         }
       }
     );
+  }
+
+  // ----- "View details" - one combined box for photos, features, and
+  // rules ----- Instead of three separate buttons/popups, everything
+  // about a property (besides its rooms) lives in one place: a photo
+  // strip up top, then a Features tab and a Rules tab underneath.
+
+  function switchDetailsTab(tab) {
+    const isFeatures = tab === 'features';
+    document.getElementById('tabFeaturesBtn').classList.toggle('active', isFeatures);
+    document.getElementById('tabRulesBtn').classList.toggle('active', !isFeatures);
+    document.getElementById('featuresPane').style.display = isFeatures ? 'block' : 'none';
+    document.getElementById('rulesPane').style.display = isFeatures ? 'none' : 'block';
+  }
+
+  function showPropertyDetails(propertyId) {
+    const property = currentProperties.find(function (p) { return p.id === propertyId; });
+    const existingFeatures = (property && property.amenities)
+      ? property.amenities.split(',').map(function (a) { return a.trim(); }).filter(Boolean)
+      : [];
+
+    const checkboxesHtml = COMMON_FEATURES.map(function (feature) {
+      const isChecked = existingFeatures.indexOf(feature) !== -1;
+      return '<label class="feature-check-item' + (isChecked ? ' active' : '') + '">' +
+        '<input type="checkbox" class="featureCheckbox" value="' + feature + '"' + (isChecked ? ' checked' : '') + '>' +
+        '<span>' + feature + '</span>' +
+        '</label>';
+    }).join('');
+    // Anything saved before that isn't one of the common checkboxes goes
+    // into the "Other" box, so it doesn't get lost.
+    const otherFeatures = existingFeatures.filter(function (a) { return COMMON_FEATURES.indexOf(a) === -1; }).join(', ');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML =
+      '<div class="modal-box" style="max-width:540px">' +
+      '<p class="modal-title">Property details</p>' +
+      '<p class="modal-sub">Photos, features, and house rules - all optional, tenants see whatever you fill in.</p>' +
+
+      '<p class="details-section-label">Photos</p>' +
+      '<div id="photoGrid" class="details-photo-grid"></div>' +
+      '<div class="details-photo-upload-row">' +
+      '<input id="photoFileInput" type="file" accept="image/*">' +
+      '<button class="btn-secondary btn-small" id="photoUploadBtn">Upload</button>' +
+      '</div>' +
+
+      '<div class="details-tabs">' +
+      '<button type="button" class="details-tab active" id="tabFeaturesBtn" onclick="switchDetailsTab(\'features\')">Features</button>' +
+      '<button type="button" class="details-tab" id="tabRulesBtn" onclick="switchDetailsTab(\'rules\')">Rules</button>' +
+      '</div>' +
+
+      '<div id="featuresPane" class="details-tab-pane">' +
+      '<div class="feature-check-grid">' + checkboxesHtml + '</div>' +
+      '<input id="featuresOtherInput" type="text" placeholder="Other features (comma-separated, optional)">' +
+      '<button class="btn-primary btn-small" id="featuresSaveBtn" style="margin-top:10px">Save features</button>' +
+      '</div>' +
+
+      '<div id="rulesPane" class="details-tab-pane" style="display:none">' +
+      '<div id="rulesList" style="margin-bottom:12px"></div>' +
+      '<input id="ruleTextInput" type="text" placeholder="e.g. No smoking inside">' +
+      '<button class="btn-primary btn-small" id="ruleAddBtn" style="margin-top:10px">Add rule</button>' +
+      '</div>' +
+
+      '<div class="modal-actions" style="margin-top:16px">' +
+      '<button class="btn-secondary btn-small" id="detailsCloseBtn">Close</button>' +
+      '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    document.getElementById('featuresOtherInput').value = otherFeatures;
+
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.getElementById('detailsCloseBtn').addEventListener('click', function () {
+      overlay.remove();
+    });
+
+    // Highlight a feature tile as soon as its checkbox is ticked/unticked.
+    document.querySelectorAll('.featureCheckbox').forEach(function (checkbox) {
+      checkbox.addEventListener('change', function () {
+        checkbox.closest('.feature-check-item').classList.toggle('active', checkbox.checked);
+      });
+    });
+    document.getElementById('featuresSaveBtn').addEventListener('click', async function () {
+      const checked = Array.from(document.querySelectorAll('.featureCheckbox:checked'))
+        .map(function (el) { return el.value; });
+      const otherText = document.getElementById('featuresOtherInput').value.trim();
+      const otherList = otherText
+        ? otherText.split(',').map(function (a) { return a.trim(); }).filter(Boolean)
+        : [];
+      const combined = checked.concat(otherList).join(', ');
+      try {
+        await apiPatch('/owner/properties/' + propertyId, { amenities: combined }, token);
+        showStatus('Features updated!', 'success');
+        loadProperties();
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    });
+
+    // Photos
+    document.getElementById('photoUploadBtn').addEventListener('click', async function () {
+      const fileInput = document.getElementById('photoFileInput');
+      if (!fileInput.files.length) {
+        showStatus('Choose a photo first.', 'error');
+        return;
+      }
+      try {
+        await uploadPhoto(propertyId, fileInput.files[0]);
+        fileInput.value = '';
+        showStatus('Photo uploaded!', 'success');
+        refreshPhotoGrid(propertyId);
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    });
+    refreshPhotoGrid(propertyId);
+
+    // Rules
+    async function addOneRule() {
+      const input = document.getElementById('ruleTextInput');
+      const text = input.value.trim();
+      if (!text) {
+        showStatus('Type a rule first.', 'error');
+        return;
+      }
+      try {
+        await apiPost('/owner/properties/' + propertyId + '/rules', { text: text }, token);
+        input.value = '';
+        input.focus(); // ready to type the next rule right away
+        refreshRulesList(propertyId);
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    }
+    document.getElementById('ruleAddBtn').addEventListener('click', addOneRule);
+    document.getElementById('ruleTextInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addOneRule();
+      }
+    });
+    refreshRulesList(propertyId);
   }
 
   async function loadBookings() {

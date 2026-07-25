@@ -23,7 +23,7 @@
       <h1 class="page-title">Find your next PG</h1>
       <p class="page-sub">AI-ranked by budget, location, and preferences</p>
       <div class="hero-stats">
-        <div class="hero-stat"><strong id="statTotalRooms">-</strong><span>Rooms found</span></div>
+        <div class="hero-stat"><strong id="statTotalRooms">-</strong><span>Properties found</span></div>
         <div class="hero-stat"><strong id="statCities">-</strong><span>Cities covered</span></div>
         <div class="hero-stat"><strong id="statAvgRent">-</strong><span>Avg. rent/mo</span></div>
       </div>
@@ -83,7 +83,10 @@
   let selectedCity = '';
   let selectedType = '';
   let showSavedOnly = false;
-  let lastRooms = [];
+  // Each entry here is now one PROPERTY (with all its available rooms
+  // folded into it), not one room - a PG with 3 room types used to show
+  // up as 3 separate cards, which was confusing.
+  let lastProperties = [];
 
   function getFavorites() {
     try {
@@ -93,15 +96,15 @@
     }
   }
 
-  function isFavorite(roomId) {
-    return getFavorites().includes(roomId);
+  function isFavorite(propertyId) {
+    return getFavorites().includes(propertyId);
   }
 
-  function toggleFavorite(roomId) {
+  function toggleFavorite(propertyId) {
     const favs = getFavorites();
-    const idx = favs.indexOf(roomId);
+    const idx = favs.indexOf(propertyId);
     if (idx === -1) {
-      favs.push(roomId);
+      favs.push(propertyId);
     } else {
       favs.splice(idx, 1);
     }
@@ -157,10 +160,10 @@
     empty.style.display = 'none';
 
     try {
-      lastRooms = await apiGet(path);
+      lastProperties = await apiGet(path);
       renderRooms();
     } catch (err) {
-      lastRooms = [];
+      lastProperties = [];
       document.getElementById('roomGrid').innerHTML = '';
       empty.innerHTML =
         '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4M12 16h.01"></path></svg></div>' +
@@ -171,18 +174,18 @@
     }
   }
 
-  function updateSideStats(rooms) {
-    document.getElementById('statTotalRooms').textContent = rooms.length;
+  function updateSideStats(properties) {
+    document.getElementById('statTotalRooms').textContent = properties.length;
 
     const cities = {};
-    rooms.forEach(function (r) {
-      cities[r.city] = (cities[r.city] || 0) + 1;
+    properties.forEach(function (p) {
+      cities[p.city] = (cities[p.city] || 0) + 1;
     });
     const cityNames = Object.keys(cities);
     document.getElementById('statCities').textContent = cityNames.length;
 
-    if (rooms.length) {
-      const avg = Math.round(rooms.reduce(function (sum, r) { return sum + r.rent_amount; }, 0) / rooms.length);
+    if (properties.length) {
+      const avg = Math.round(properties.reduce(function (sum, p) { return sum + p.rent_min; }, 0) / properties.length);
       document.getElementById('statAvgRent').textContent = 'Rs ' + avg;
     } else {
       document.getElementById('statAvgRent').textContent = '-';
@@ -209,26 +212,26 @@
     const empty = document.getElementById('emptyState');
     const sortBy = document.getElementById('sortSelect').value;
 
-    let rooms = lastRooms.slice();
+    let properties = lastProperties.slice();
     if (showSavedOnly) {
-      rooms = rooms.filter(function (r) { return isFavorite(r.id); });
+      properties = properties.filter(function (p) { return isFavorite(p.property_id); });
     }
 
     if (sortBy === 'price_low') {
-      rooms.sort(function (a, b) { return a.rent_amount - b.rent_amount; });
+      properties.sort(function (a, b) { return a.rent_min - b.rent_min; });
     } else if (sortBy === 'price_high') {
-      rooms.sort(function (a, b) { return b.rent_amount - a.rent_amount; });
+      properties.sort(function (a, b) { return b.rent_max - a.rent_max; });
     } else {
-      rooms.sort(function (a, b) { return b.match_score - a.match_score; });
+      properties.sort(function (a, b) { return b.match_score - a.match_score; });
     }
 
     grid.innerHTML = '';
-    updateSideStats(rooms);
+    updateSideStats(properties);
 
-    if (!rooms.length) {
+    if (!properties.length) {
       const message = showSavedOnly
-        ? { title: 'No saved rooms yet', sub: 'Tap the heart on any room to save it for later.' }
-        : { title: 'No rooms match yet', sub: 'Try a different city, or raise your budget to see more listings.' };
+        ? { title: 'No saved properties yet', sub: 'Tap the heart on any property to save it for later.' }
+        : { title: 'No properties match yet', sub: 'Try a different city, or raise your budget to see more listings.' };
       empty.innerHTML =
         '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg></div>' +
         '<p class="empty-state-title">' + message.title + '</p>' +
@@ -239,19 +242,27 @@
 
     empty.style.display = 'none';
 
-    rooms.forEach(function (r) {
+    properties.forEach(function (p) {
       const card = document.createElement('div');
       card.className = 'room-card';
-      const favActive = isFavorite(r.id) ? ' active' : '';
+      const favActive = isFavorite(p.property_id) ? ' active' : '';
+      // Rent is shown as a range across all its available rooms, unless
+      // every room happens to cost the same, in which case just one price.
+      const rentText = p.rent_min === p.rent_max
+        ? 'Rs ' + p.rent_min + '/mo'
+        : 'Rs ' + p.rent_min + ' - ' + p.rent_max + '/mo';
+      const roomsSummary = p.room_count + ' room' + (p.room_count === 1 ? '' : 's') +
+        ' available · ' + p.total_available_beds + ' bed(s)';
       card.innerHTML =
-        '<button type="button" class="fav-btn' + favActive + '" onclick="toggleFavorite(' + r.id + ')">' +
+        '<button type="button" class="fav-btn' + favActive + '" onclick="toggleFavorite(' + p.property_id + ')">' +
         '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8Z"></path></svg>' +
         '</button>' +
-        '<span class="match-badge">' + r.match_score + '% match</span>' +
-        '<h3>' + r.property_name + '</h3>' +
-        '<p class="room-meta">' + r.city + ' · ' + r.room_type + ' · ' + r.bed_count + ' bed(s)</p>' +
-        '<p class="room-rent">Rs ' + r.rent_amount + '/mo</p>' +
-        '<button class="btn-secondary btn-small" onclick="location.href=\'property.html?id=' + r.property_id + '\'">View property</button>';
+        '<span class="match-badge">' + p.match_score + '% match</span>' +
+        '<h3>' + p.property_name + '</h3>' +
+        '<p class="room-meta">' + p.city + ' · ' + p.room_types.join(', ') + '</p>' +
+        '<p class="room-meta">' + roomsSummary + '</p>' +
+        '<p class="room-rent">' + rentText + '</p>' +
+        '<button class="btn-secondary btn-small" onclick="location.href=\'property.html?id=' + p.property_id + '\'">View property</button>';
       grid.appendChild(card);
     });
   }

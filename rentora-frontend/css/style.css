@@ -51,7 +51,7 @@ body {
 /* ----- Left panel: brand / value proposition ----- */
 .brand-panel {
   flex: 1;
-  background: var(--brand);
+  background: linear-gradient(165deg, #0A1122 0%, var(--brand-dark) 55%, var(--brand) 135%);
   color: #fff;
   padding: 3rem 3rem;
   display: flex;
@@ -276,6 +276,17 @@ body {
   border-color: var(--brand);
 }
 
+/* The role dropdown on the login page reuses .field-input, plus this
+   for a clean custom arrow instead of the browser's default one. */
+select.field-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #fff url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6a63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 14px center;
+  background-size: 16px;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
 .role-toggle {
   display: flex;
   gap: 8px;
@@ -401,47 +412,52 @@ body.app-body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 28px;
+  padding: 16px 32px;
   background: #fff;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
   gap: 10px;
 }
 
+.topnav {
+  min-height: 76px;
+}
+
 .nav-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   font-weight: 700;
   color: var(--brand-dark);
-  font-size: 15px;
+  font-size: 22px;
 }
 
 .nav-logo .logo-badge {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: var(--brand);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .nav-links {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .nav-link {
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 13.5px;
-  font-weight: 500;
+  padding: 12px 22px;
+  border-radius: 9px;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-secondary);
   text-decoration: none;
+  background: #f3f2ee;
 }
 
 .nav-link.active {
@@ -449,38 +465,49 @@ body.app-body {
   color: var(--brand-dark);
 }
 
+/* "Glass" red logout button - semi-transparent red with a blur behind it,
+   so it stands out as the one destructive action in the nav bar. */
 .nav-logout {
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: none;
-  border: 1px solid var(--border);
-  padding: 7px 14px;
-  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1.5px solid rgba(220, 38, 38, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 13px 26px;
+  border-radius: 10px;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.nav-logout:hover {
+  background: rgba(220, 38, 38, 0.18);
+  border-color: rgba(220, 38, 38, 0.4);
 }
 
 .page-wrap {
-  max-width: 1360px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 28px 32px 60px;
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 29px;
   font-weight: 600;
   margin: 0 0 4px;
 }
 
 .page-sub {
-  font-size: 13px;
+  font-size: 16px;
   color: var(--text-secondary);
   margin: 0 0 24px;
 }
 
 .section-title {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 28px 0 12px;
+  font-size: 21px;
+  font-weight: 700;
+  margin: 34px 0 16px;
 }
 
 .filters-bar {
@@ -491,11 +518,29 @@ body.app-body {
 }
 
 .filters-bar input {
-  padding: 10px 12px;
+  flex: 1 1 180px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
-  min-width: 160px;
+  border-radius: 9px;
+  font-size: 15.5px;
+  min-width: 0;
+}
+
+.filters-bar button {
+  flex: 0 0 auto;
+}
+
+/* A tidy, evenly-sized row of action buttons on a card (e.g. the owner's
+   Add a room / Edit features / Manage photos / Manage rules buttons). */
+.card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.card-actions .btn-secondary {
+  width: 100%;
 }
 
 .card-grid {
@@ -528,12 +573,12 @@ body.app-body {
 }
 
 .room-card h3 {
-  font-size: 15px;
+  font-size: 16px;
   margin: 0 0 4px;
 }
 
 .room-meta {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-secondary);
   margin: 0 0 10px;
 }
@@ -558,50 +603,57 @@ body.app-body {
 
 .btn-small {
   padding: 8px 12px;
-  font-size: 12.5px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
+/* Fills the full width of whatever column it sits in (instead of a small
+   fixed-width box floating in the middle of a wide column, which left a
+   lot of dead space on either side). */
 .empty-state {
   text-align: center;
-  padding: 44px 32px;
+  padding: 46px 32px;
   color: var(--text-secondary);
-  font-size: 13.5px;
+  font-size: 15px;
   border: 1px dashed var(--border);
   border-radius: 16px;
   background: #fff;
-  max-width: 380px;
-  margin: 12px auto 0;
+  width: 100%;
+  margin: 12px 0 0;
 }
 
 .empty-state-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 62px;
+  height: 62px;
+  border-radius: 15px;
   background: var(--brand-light);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 16px;
+  margin: 0 auto 18px;
 }
 
 .empty-state-icon svg {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   stroke: var(--brand-dark);
 }
 
 .empty-state-title {
-  font-size: 14.5px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 6px;
+  margin: 0 0 8px;
 }
 
 .empty-state-sub {
-  font-size: 12.5px;
+  font-size: 15px;
   color: var(--text-secondary);
   margin: 0 0 18px;
-  line-height: 1.5;
+  line-height: 1.55;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .due-row,
@@ -609,23 +661,25 @@ body.app-body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 18px 20px;
   border: 1px solid var(--border);
   border-radius: 12px;
   margin-bottom: 10px;
   background: #fff;
   gap: 12px;
   flex-wrap: wrap;
+  font-size: 15.5px;
 }
 
 .due-amount {
   font-weight: 700;
+  font-size: 17px;
 }
 
 .status-tag {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 20px;
   text-transform: capitalize;
   white-space: nowrap;
@@ -738,18 +792,18 @@ body.app-body {
 .stat-card {
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 16px 18px;
+  padding: 20px 22px;
   background: #fff;
 }
 
 .stat-card-label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-secondary);
-  margin: 0 0 6px;
+  margin: 0 0 9px;
 }
 
 .stat-card-value {
-  font-size: 22px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--brand-dark);
   margin: 0;
@@ -760,7 +814,14 @@ body.app-body {
 }
 
 /* ===== Complaint form ===== */
+/* Laid out as a wrapping row (like .filters-bar) instead of stacked
+   full-width fields, so short inputs (amount, date) don't each eat a
+   whole line - the form reads as one tidy bar, not a broken stack. */
 .complaint-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
@@ -771,18 +832,25 @@ body.app-body {
 .complaint-form select,
 .complaint-form input,
 .complaint-form textarea {
-  width: 100%;
-  padding: 10px 12px;
+  flex: 1 1 180px;
+  width: auto;
+  min-width: 0;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: 9px;
+  font-size: 15.5px;
   font-family: inherit;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .complaint-form textarea {
+  flex: 1 1 100%;
   resize: vertical;
   min-height: 70px;
+}
+
+.complaint-form button {
+  flex: 0 0 auto;
 }
 
 .complaint-row {
@@ -914,7 +982,7 @@ body.app-body {
 /* ===== Two-column layout (main content + sidebar) ===== */
 .layout-grid {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 300px;
   gap: 28px;
   align-items: start;
 }
@@ -942,7 +1010,7 @@ body.app-body {
 .side-card {
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 18px;
+  padding: 24px;
   background: #fff;
 }
 
@@ -952,18 +1020,18 @@ body.app-body {
 }
 
 .side-card-title {
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0 0 16px;
 }
 
 .tip-item {
-  font-size: 12.5px;
+  font-size: 15px;
   color: var(--text-secondary);
-  margin: 0 0 10px;
-  padding-left: 16px;
+  margin: 0 0 14px;
+  padding-left: 18px;
   position: relative;
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 .tip-item::before {
@@ -1104,6 +1172,269 @@ body.app-body {
   font-size: 13px;
   font-family: inherit;
   margin-bottom: 12px;
+}
+
+/* Features (left) / Rules (right) side by side in the tenant's room
+   details popup. Stacks to one column if the modal ever gets narrow. */
+.room-details-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 480px) {
+  .room-details-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Property "View details" combined box (photos/features/rules) ===== */
+.details-section-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+
+.details-photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+  min-height: 40px;
+}
+
+.details-photo-upload-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.details-photo-upload-row input[type="file"] {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+}
+
+/* Two tabs side by side, like a real tab bar - the active one gets a
+   navy underline so it's obvious which pane is showing below. */
+.details-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.details-tab {
+  background: none;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  padding: 8px 4px 10px;
+  margin-right: 20px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.details-tab.active {
+  color: var(--brand-dark);
+  border-bottom-color: var(--brand);
+}
+
+.details-tab-pane input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+}
+
+/* ===== Feature checkbox tiles (owner "Edit features" modal) ===== */
+.feature-check-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.feature-check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.feature-check-item:hover {
+  border-color: var(--brand-mid);
+}
+
+.feature-check-item.active {
+  border-color: var(--brand);
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.feature-check-item input {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
+/* ===== Chat with owner (property page side card) ===== */
+.chat-messages {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-right: 2px;
+}
+
+/* One message bubble - blue and right-aligned for the tenant's own
+   messages, grey and left-aligned for whatever the other side sent. */
+.chat-bubble {
+  max-width: 85%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.chat-bubble.mine {
+  align-self: flex-end;
+  background: var(--brand);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+
+.chat-bubble.theirs {
+  align-self: flex-start;
+  background: #f1efe8;
+  color: var(--text-primary);
+  border-bottom-left-radius: 3px;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: inherit;
+}
+
+/* ===== Floating assistant bot ===== */
+.bot-bubble {
+  position: fixed;
+  bottom: 26px;
+  right: 26px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font-size: 24px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(15, 27, 51, 0.3);
+  z-index: 900;
+}
+
+.bot-panel {
+  position: fixed;
+  bottom: 94px;
+  right: 26px;
+  width: 320px;
+  max-height: 460px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 900;
+}
+
+.bot-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--brand-dark);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14.5px;
+}
+
+.bot-panel-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bot-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 160px;
+}
+
+.bot-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+
+.bot-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.bot-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
 }
 
 /* Photo gallery on the tenant-facing property page. */
