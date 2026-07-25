@@ -10,6 +10,10 @@ class PropertyCreate(BaseModel):
     city: str
     address: str
     amenities: Optional[str] = None
+    # Both optional - only sent if the owner's building actually has
+    # floors, or if they want to note a rough total room count up front.
+    total_floors: Optional[int] = None
+    total_rooms: Optional[int] = None
 
 
 class PropertyOut(BaseModel):
@@ -21,19 +25,30 @@ class PropertyOut(BaseModel):
     city: str
     address: str
     amenities: Optional[str] = None
+    total_floors: Optional[int] = None
+    total_rooms: Optional[int] = None
     created_at: datetime
 
 
 class PropertyUpdate(BaseModel):
-    # Right now an owner can only update their features (amenities) after
-    # creating a property. Add more fields here later if needed.
+    # Everything here is optional - only the fields actually sent get
+    # updated (e.g. fixing a typo in the city won't touch anything else).
+    name: Optional[str] = None
+    city: Optional[str] = None
+    address: Optional[str] = None
     amenities: Optional[str] = None
+    total_floors: Optional[int] = None
+    total_rooms: Optional[int] = None
 
 
 class RoomCreate(BaseModel):
     room_type: RoomType = RoomType.double
     bed_count: int = 1
     rent_amount: float
+    # Both optional - only set if the owner's property has floors and/or
+    # labels its rooms with a number.
+    floor_number: Optional[int] = None
+    room_number: Optional[str] = None
 
 
 class RoomOut(BaseModel):
@@ -45,6 +60,8 @@ class RoomOut(BaseModel):
     bed_count: int
     rent_amount: float
     is_available: bool
+    floor_number: Optional[int] = None
+    room_number: Optional[str] = None
 
 
 class PhotoOut(BaseModel):

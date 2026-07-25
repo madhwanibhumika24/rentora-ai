@@ -62,6 +62,17 @@ def bot_message(
         )
 
     if payload.intent == "doubt":
+        # First time hitting this intent there's no text yet - just ask
+        # for the question. Once the tenant actually types something and
+        # sends it back with the same intent, acknowledge it and point
+        # them to a real person, since this bot can't actually answer
+        # open-ended questions - it's a simple menu, not real AI.
+        if payload.text:
+            return BotMessageResponse(
+                reply='Got it - noted your question: "' + payload.text + '". '
+                      "For a proper answer, the fastest way is asking the owner directly.",
+                options=["Request a call"],
+            )
         return BotMessageResponse(reply="Sure, ask away - type your question.", options=[])
 
     if payload.intent == "request_call":

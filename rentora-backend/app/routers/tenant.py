@@ -26,6 +26,15 @@ def explore_rooms(
     room_type: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    """
+    Returns one card per PROPERTY (not per room) - a PG with 3 room types
+    used to show up as 3 separate cards on the explore page, which was
+    confusing since it's really just one place. Now every available room
+    at a property gets folded into a single summary: the rent range, the
+    room types on offer, and the best match score among its rooms.
+    Clicking the card still goes to the property page, which lists every
+    individual room.
+    """
     query = db.query(Room).join(Property).filter(Room.is_available == True)
     if city:
         query = query.filter(Property.city.ilike(f"%{city}%"))
@@ -35,19 +44,37 @@ def explore_rooms(
         query = query.filter(Room.room_type == room_type)
     rooms = query.all()
 
-    results = []
+    # Group the matching rooms by their property id.
+    grouped = {}
     for room in rooms:
-        results.append({
-            "id": room.id,
-            "property_id": room.property_id,
-            "property_name": room.property.name,
-            "city": room.property.city,
-            "room_type": room.room_type,
-            "bed_count": room.bed_count,
-            "rent_amount": float(room.rent_amount),
-            "is_available": room.is_available,
-            "match_score": calculate_match_score(room, city, budget),
-        })
+        pid = room.property_id
+        if pid not in grouped:
+            grouped[pid] = {
+                "property_id": pid,
+                "property_name": room.property.name,
+                "city": room.property.city,
+                "room_types": set(),
+                "rent_min": float(room.rent_amount),
+                "rent_max": float(room.rent_amount),
+                "total_available_beds": 0,
+                "room_count": 0,
+                "match_score": 0,
+            }
+        entry = grouped[pid]
+        rent = float(room.rent_amount)
+        score = calculate_match_score(room, city, budget)
+
+        entry["room_types"].add(room.room_type.value if hasattr(room.room_type, "value") else room.room_type)
+        entry["rent_min"] = min(entry["rent_min"], rent)
+        entry["rent_max"] = max(entry["rent_max"], rent)
+        entry["total_available_beds"] += room.bed_count
+        entry["room_count"] += 1
+        entry["match_score"] = max(entry["match_score"], score)
+
+    results = []
+    for entry in grouped.values():
+        entry["room_types"] = sorted(entry["room_types"])
+        results.append(entry)
 
     results.sort(key=lambda r: r["match_score"], reverse=True)
     return results
@@ -66,6 +93,10 @@ def get_property_detail(property_id: int, db: Session = Depends(get_db)):
         "city": property_obj.city,
         "address": property_obj.address,
         "amenities": property_obj.amenities,
+        # Needed so the tenant's chat widget knows who to message.
+        "owner_id": property_obj.owner_id,
+        # Optional - only set if the owner told us this building has floors.
+        "total_floors": property_obj.total_floors,
         # Both of these are optional extras - they'll just be empty
         # lists if the owner hasn't added any yet.
         "photos": [p.image_url for p in photos],
@@ -77,6 +108,8 @@ def get_property_detail(property_id: int, db: Session = Depends(get_db)):
                 "bed_count": r.bed_count,
                 "rent_amount": float(r.rent_amount),
                 "is_available": r.is_available,
+                "floor_number": r.floor_number,
+                "room_number": r.room_number,
             }
             for r in rooms
         ],

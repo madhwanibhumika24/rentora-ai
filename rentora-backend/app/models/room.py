@@ -21,6 +21,12 @@ class Room(Base):
     bed_count = Column(Integer, nullable=False, default=1)
     rent_amount = Column(Numeric(10, 2), nullable=False)
     is_available = Column(Boolean, default=True)
+    # Optional - only set if the owner's property actually has floors.
+    # Left blank (NULL), a room just shows up without a floor label.
+    floor_number = Column(Integer, nullable=True)
+    # Optional label like "101" or "G-2" - a string (not a number) since
+    # room numbers aren't always plain digits.
+    room_number = Column(String(20), nullable=True)
 
     property = relationship("Property", back_populates="rooms")
     bookings = relationship("Booking", back_populates="room")

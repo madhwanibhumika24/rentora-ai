@@ -13,6 +13,9 @@ from app.models.booking import Booking, BookingStatus
 from app.models.property_photo import PropertyPhoto
 from app.models.property_rule import PropertyRule
 from app.models.call_request import CallRequest
+from app.models.complaint import Complaint
+from app.models.community_post import CommunityPost
+from app.models.message import Message
 from app.schemas.property import (
     PropertyCreate,
     PropertyOut,
@@ -60,6 +63,8 @@ def create_property(
         city=payload.city,
         address=payload.address,
         amenities=payload.amenities,
+        total_floors=payload.total_floors,
+        total_rooms=payload.total_rooms,
     )
     db.add(property_obj)
     db.commit()
@@ -73,6 +78,51 @@ def list_properties(
     current_user: User = Depends(require_owner),
 ):
     return db.query(Property).filter(Property.owner_id == current_user.id).all()
+
+
+@router.delete("/properties/{property_id}")
+def delete_property(
+    property_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_owner),
+):
+    """
+    Deletes a property and everything that belongs to it - rooms (and any
+    bookings on those rooms), photos (including the actual files on disk),
+    rules, call requests, complaints, and community posts. This can't be
+    undone, so the frontend always asks "are you sure?" before calling
+    this - never wire this up to a button that fires without confirming.
+    """
+    property_obj = get_owned_property(db, property_id, current_user.id)
+
+    # Bookings point at a room, not the property directly, so grab every
+    # room's id first and delete their bookings before the rooms themselves.
+    room_ids = [r.id for r in db.query(Room).filter(Room.property_id == property_id).all()]
+    if room_ids:
+        db.query(Booking).filter(Booking.room_id.in_(room_ids)).delete(synchronize_session=False)
+        db.query(Room).filter(Room.property_id == property_id).delete(synchronize_session=False)
+
+    # Delete photo files off disk too, not just their database rows.
+    photos = db.query(PropertyPhoto).filter(PropertyPhoto.property_id == property_id).all()
+    for photo in photos:
+        file_path = photo.image_url.lstrip("/")
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    db.query(PropertyPhoto).filter(PropertyPhoto.property_id == property_id).delete(synchronize_session=False)
+
+    db.query(PropertyRule).filter(PropertyRule.property_id == property_id).delete(synchronize_session=False)
+    db.query(CallRequest).filter(CallRequest.property_id == property_id).delete(synchronize_session=False)
+    db.query(Complaint).filter(Complaint.property_id == property_id).delete(synchronize_session=False)
+    db.query(CommunityPost).filter(CommunityPost.property_id == property_id).delete(synchronize_session=False)
+    # Messages can exist without a property attached, so just detach them
+    # instead of deleting someone's chat history.
+    db.query(Message).filter(Message.property_id == property_id).update(
+        {"property_id": None}, synchronize_session=False
+    )
+
+    db.delete(property_obj)
+    db.commit()
+    return {"message": "Property deleted"}
 
 
 @router.post("/properties/{property_id}/rooms", response_model=RoomOut)
@@ -95,6 +145,8 @@ def add_room(
         room_type=payload.room_type,
         bed_count=payload.bed_count,
         rent_amount=payload.rent_amount,
+        floor_number=payload.floor_number,
+        room_number=payload.room_number,
     )
     db.add(room)
     db.commit()
@@ -119,10 +171,10 @@ def list_rooms(
     return db.query(Room).filter(Room.property_id == property_id).all()
 
 
-# ----- Features (amenities) -----
-# These were only settable when creating a property before. This lets an
-# owner come back later and add/update them, since not everyone fills
-# everything in on day one.
+# ----- Editing a property's details -----
+# Covers everything from fixing a typo'd city/name/address to updating
+# features (amenities) and the floor/room totals after creation - not
+# everyone gets everything right (or filled in) on day one.
 
 @router.patch("/properties/{property_id}", response_model=PropertyOut)
 def update_property_features(
@@ -133,8 +185,21 @@ def update_property_features(
 ):
     property_obj = get_owned_property(db, property_id, current_user.id)
 
+    # Only touch a field if it was actually sent - this lets the same
+    # endpoint be used for small one-off edits (like fixing a typo in the
+    # city) without having to resend everything else.
+    if payload.name is not None:
+        property_obj.name = payload.name
+    if payload.city is not None:
+        property_obj.city = payload.city
+    if payload.address is not None:
+        property_obj.address = payload.address
     if payload.amenities is not None:
         property_obj.amenities = payload.amenities
+    if payload.total_floors is not None:
+        property_obj.total_floors = payload.total_floors
+    if payload.total_rooms is not None:
+        property_obj.total_rooms = payload.total_rooms
 
     db.commit()
     db.refresh(property_obj)
