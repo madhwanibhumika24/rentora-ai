@@ -14,7 +14,22 @@
     <a class="nav-link" href="explore.html">Explore</a>
     <a class="nav-link" href="dashboard.html">Dashboard</a>
   </div>
-  <button class="nav-logout" onclick="logout()">Log out</button>
+  <div class="nav-profile">
+    <button class="nav-profile-trigger" onclick="toggleNavProfile()">
+      <span class="nav-avatar" id="navAvatar">A</span>
+      <span class="nav-profile-name" id="navProfileName">Account</span>
+      <span class="nav-chevron">&#9662;</span>
+    </button>
+    <div class="nav-profile-menu" id="navProfileMenu">
+      <div class="nav-profile-menu-name" id="navProfileMenuName">Account</div>
+      <button class="nav-profile-menu-item danger" onclick="logout()">Log out</button>
+    </div>
+  </div>
+</div>
+
+<div class="preview-banner" id="previewBanner" style="display:none">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" style="vertical-align:-4px;margin-right:8px"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+  <strong>Tenant preview</strong> &mdash; this is exactly what tenants see for this listing. Booking and chat are turned off here.
 </div>
 
 <div class="page-wrap">
@@ -24,12 +39,27 @@
     </div>
   </div>
 
-  <div id="photoGallery" class="photo-gallery" style="display:none"></div>
-
   <div class="layout-grid">
     <div>
       <p class="section-title" style="margin-top:0">Available rooms</p>
-      <div id="roomList"></div>
+
+      <div id="roomsEmptyState" style="display:none"></div>
+
+      <div class="rooms-table-wrap" id="roomsTableWrap" style="display:none">
+        <table class="rooms-table">
+          <thead>
+            <tr>
+              <th>Room</th>
+              <th>Floor</th>
+              <th>Beds</th>
+              <th>Rent</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="roomList"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="side-col">
@@ -38,11 +68,6 @@
         <p class="tip-item">Verified owners and transparent, per-bed pricing.</p>
         <p class="tip-item">Instant booking requests — track status from your dashboard.</p>
         <p class="tip-item">No hidden fees. The rent shown is what you pay.</p>
-      </div>
-
-      <div class="side-card" id="rulesCard" style="display:none">
-        <p class="side-card-title">House rules</p>
-        <div id="rulesListView"></div>
       </div>
 
       <div class="side-card">
@@ -95,9 +120,16 @@
   const propertyId = params.get('id');
   const myUserId = parseInt(localStorage.getItem('rentora_user_id'), 10);
 
-  // Filled in once loadProperty() runs, so other functions (room details
-  // modal, chat) can look a room or the owner's id up without re-fetching.
-  let currentRoomsById = {};
+  // Set when an owner opens this page via "Tenant preview" on their
+  // dashboard. Shows a banner explaining what the page is, and turns off
+  // actions that only make sense for an actual tenant (booking, chat).
+  const isPreview = params.get('preview') === '1';
+  if (isPreview) {
+    document.getElementById('previewBanner').style.display = 'block';
+  }
+
+  // Filled in once loadProperty() runs, so other functions (the property
+  // gallery popup, chat) can use it without re-fetching.
   let currentPropertyName = '';
   let currentPropertyPhotos = [];
   let currentPropertyFeatures = [];
@@ -118,101 +150,75 @@
         ? p.amenities.split(',').map(function (a) { return a.trim(); }).filter(Boolean)
         : [];
       currentPropertyRules = p.rules || [];
-      const amenities = p.amenities
-        ? '<div class="amenity-chip-row">' + p.amenities.split(',').map(function (a) {
-            return '<span class="amenity-chip">' + a.trim() + '</span>';
-          }).join('') + '</div>'
-        : '';
+      // Features used to also show as chips right here in the header,
+      // duplicating what's in the "View photos, features & rules" popup -
+      // removed so they only live in that one place now. The button
+      // itself now sits inside the hero banner, on the right, instead of
+      // floating below it on plain page background.
       document.getElementById('propertyHeader').innerHTML =
         '<div class="page-hero-inner">' +
         '<h1 class="page-title">' + p.name + '</h1>' +
         '<p class="page-sub">' + p.address + ', ' + p.city + '</p>' +
-        amenities +
-        '</div>';
+        '</div>' +
+        '<button type="button" class="hero-gallery-btn" onclick="showPropertyGallery()">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:-3px;margin-right:7px"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.5-3.5a2 2 0 0 0-2.8 0L5 21"></path></svg>' +
+        'View photos, features &amp; rules' +
+        '</button>';
 
-      // Photos and rules are both optional - only the owner adding them
-      // makes these sections show up at all.
-      const galleryEl = document.getElementById('photoGallery');
-      if (p.photos && p.photos.length) {
-        galleryEl.innerHTML = p.photos.map(function (url) {
-          return '<img src="' + API_BASE + url + '" alt="' + p.name + '">';
-        }).join('');
-        galleryEl.style.display = 'flex';
-      } else {
-        galleryEl.style.display = 'none';
-      }
+      // Photos, features and rules are all shown together from the "View
+      // photos, features & rules" button instead of scattered across the
+      // page - currentPropertyPhotos/Features/Rules (set above) feed that.
 
-      const rulesCard = document.getElementById('rulesCard');
-      if (p.rules && p.rules.length) {
-        document.getElementById('rulesListView').innerHTML = p.rules.map(function (r) {
-          return '<p class="tip-item">' + r + '</p>';
-        }).join('');
-        rulesCard.style.display = 'block';
-      } else {
-        rulesCard.style.display = 'none';
-      }
-
+      const emptyState = document.getElementById('roomsEmptyState');
+      const tableWrap = document.getElementById('roomsTableWrap');
       const list = document.getElementById('roomList');
 
       if (!p.rooms.length) {
-        list.innerHTML =
+        tableWrap.style.display = 'none';
+        emptyState.style.display = 'block';
+        emptyState.innerHTML =
           '<div class="empty-state">' +
           '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></div>' +
           '<p class="empty-state-title">No rooms listed yet</p>' +
           '<p class="empty-state-sub">The owner hasn\'t added any rooms to this property yet.</p>' +
           '</div>';
-        setupChatAndBot(p.owner_id);
+        if (!isPreview) setupChatAndBot(p.owner_id);
         return;
       }
 
-      // Turns one room into its card's HTML (used below, whether rooms
-      // are grouped by floor or just shown as one flat list). The card
-      // itself just shows a summary - "View details" opens a popup with
-      // everything about the room, and booking happens from inside that
-      // popup instead of directly off the card.
-      function roomCardHtml(r) {
-        currentRoomsById[r.id] = r;
-        const titleSuffix = r.room_number ? ' - Room ' + r.room_number : '';
-        return '<div class="room-card">' +
-          '<h3>' + r.room_type + ' room' + titleSuffix + '</h3>' +
-          '<p class="room-meta">' + r.bed_count + ' bed(s) · ' + (r.is_available ? 'Available' : 'Not available') + '</p>' +
-          '<p class="room-rent">Rs ' + r.rent_amount + '/mo</p>' +
-          '<button class="btn-secondary" onclick="showRoomDetails(' + r.id + ')">View details</button>' +
-          '</div>';
-      }
+      emptyState.style.display = 'none';
+      tableWrap.style.display = 'block';
 
-      // Only group by floor if at least one room actually has a floor
-      // number set - most properties won't, and they just get a flat list.
-      const hasFloors = p.rooms.some(function (r) {
-        return r.floor_number !== null && r.floor_number !== undefined;
+      // Sorted by floor (rooms with no floor set go last), so the table
+      // reads top to bottom by floor without needing separate grouped
+      // sections - one flat, simple table instead of nested layouts.
+      const sortedRooms = p.rooms.slice().sort(function (a, b) {
+        const floorA = (a.floor_number === null || a.floor_number === undefined) ? Infinity : a.floor_number;
+        const floorB = (b.floor_number === null || b.floor_number === undefined) ? Infinity : b.floor_number;
+        return floorA - floorB;
       });
 
-      if (!hasFloors) {
-        list.innerHTML = '<div class="card-grid">' + p.rooms.map(roomCardHtml).join('') + '</div>';
-      } else {
-        const floors = {};
-        p.rooms.forEach(function (r) {
-          const key = (r.floor_number === null || r.floor_number === undefined) ? 'other' : r.floor_number;
-          if (!floors[key]) floors[key] = [];
-          floors[key].push(r);
-        });
+      list.innerHTML = sortedRooms.map(function (r) {
+        const roomLabel = r.room_type + (r.room_number ? ' - Room ' + r.room_number : '');
+        const floorLabel = (r.floor_number !== null && r.floor_number !== undefined) ? 'Floor ' + r.floor_number : '-';
+        const statusBadge = '<span class="availability-badge ' + (r.is_available ? 'available' : 'unavailable') + '">' +
+          (r.is_available ? 'Available' : 'Not available') + '</span>';
+        // In preview mode there's no Book button at all - the owner is
+        // just checking how the listing looks, not actually booking.
+        const actionCell = isPreview
+          ? ''
+          : '<button class="btn-primary btn-small" ' + (r.is_available ? '' : 'disabled') + ' onclick="book(' + r.id + ')">Book</button>';
+        return '<tr>' +
+          '<td><strong>' + roomLabel + '</strong></td>' +
+          '<td>' + floorLabel + '</td>' +
+          '<td>' + r.bed_count + '</td>' +
+          '<td>Rs ' + r.rent_amount + '/mo</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td style="text-align:right">' + actionCell + '</td>' +
+          '</tr>';
+      }).join('');
 
-        // Numbered floors first (low to high), then rooms with no floor
-        // set go in an "Other rooms" group at the end.
-        const floorKeys = Object.keys(floors)
-          .filter(function (k) { return k !== 'other'; })
-          .sort(function (a, b) { return Number(a) - Number(b); });
-        if (floors.other) floorKeys.push('other');
-
-        list.innerHTML = floorKeys.map(function (key, index) {
-          const heading = key === 'other' ? 'Other rooms' : 'Floor ' + key;
-          const marginTop = index === 0 ? '0' : '18px';
-          return '<p class="section-title" style="margin-top:' + marginTop + '">' + heading + '</p>' +
-            '<div class="card-grid">' + floors[key].map(roomCardHtml).join('') + '</div>';
-        }).join('');
-      }
-
-      setupChatAndBot(p.owner_id);
+      if (!isPreview) setupChatAndBot(p.owner_id);
     } catch (err) {
       // Show the real backend reason instead of a generic message - makes
       // it much easier to tell what actually went wrong.
@@ -222,51 +228,47 @@
     }
   }
 
-  // Opens a popup with everything about the room AND the property it's
-  // in - photos up top, then Features and Rules side by side - with
-  // "Book this room" as the final action inside it, instead of booking
-  // straight off the card.
-  function showRoomDetails(roomId) {
-    const r = currentRoomsById[roomId];
-    if (!r) return;
-
-    const floorText = (r.floor_number !== null && r.floor_number !== undefined) ? 'Floor ' + r.floor_number + ' · ' : '';
-    const roomNumberText = r.room_number ? 'Room ' + r.room_number + ' · ' : '';
-
+  // One shared popup for photos, features, and rules - the same for
+  // every room in this property, so it only needs to be built once
+  // instead of repeating inside each room's own details popup.
+  function showPropertyGallery() {
     const photosHtml = currentPropertyPhotos.length
-      ? '<div class="photo-gallery" style="margin-bottom:18px">' +
+      ? '<div class="photo-gallery" style="margin-bottom:20px">' +
         currentPropertyPhotos.map(function (url) {
           return '<img src="' + API_BASE + url + '" alt="' + currentPropertyName + '">';
         }).join('') +
         '</div>'
-      : '';
+      : '<p class="room-meta" style="margin:0 0 20px">No photos uploaded yet.</p>';
 
     const featuresHtml = currentPropertyFeatures.length
-      ? currentPropertyFeatures.map(function (f) { return '<span class="amenity-chip" style="display:block;width:fit-content;margin-bottom:6px">' + f + '</span>'; }).join('')
+      ? '<div class="amenity-chip-row" style="margin-top:0">' +
+        currentPropertyFeatures.map(function (f) { return '<span class="amenity-chip" style="background:var(--brand-light);color:var(--brand-dark)">' + f + '</span>'; }).join('') +
+        '</div>'
       : '<p class="room-meta" style="margin:0">Not listed yet.</p>';
 
+    const checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     const rulesHtml = currentPropertyRules.length
-      ? currentPropertyRules.map(function (rule) { return '<p class="tip-item" style="padding-left:0">' + rule + '</p>'; }).join('')
+      ? currentPropertyRules.map(function (rule) {
+          return '<div class="rule-list-item">' + checkIcon + '<span>' + rule + '</span></div>';
+        }).join('')
       : '<p class="room-meta" style="margin:0">Not listed yet.</p>';
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML =
       '<div class="modal-box" style="max-width:560px">' +
-      '<p class="modal-title">' + r.room_type + ' room</p>' +
-      '<p class="modal-sub">' + currentPropertyName + ' · ' + floorText + roomNumberText + r.bed_count + ' bed(s)</p>' +
-      '<p class="room-rent" style="margin:0 0 16px">Rs ' + r.rent_amount + '/mo · ' + (r.is_available ? 'Available' : 'Not available right now') + '</p>' +
+      '<p class="modal-title" style="font-size:19px">' + currentPropertyName + '</p>' +
+      '<p class="modal-sub" style="font-size:14px;margin-bottom:18px">Photos, features, and house rules for this property.</p>' +
 
       photosHtml +
 
-      '<div class="room-details-columns">' +
+      '<div class="room-details-columns" style="border-top:none;padding-top:0;margin-top:0">' +
       '<div><p class="details-section-label">Features</p>' + featuresHtml + '</div>' +
       '<div><p class="details-section-label">Rules</p>' + rulesHtml + '</div>' +
       '</div>' +
 
-      '<div class="modal-actions" style="margin-top:18px">' +
-      '<button class="btn-secondary btn-small" id="roomDetailsCloseBtn">Close</button>' +
-      '<button class="btn-primary" style="width:auto;padding:9px 18px" id="roomDetailsBookBtn" ' + (r.is_available ? '' : 'disabled') + '>Book this room</button>' +
+      '<div class="modal-actions" style="margin-top:20px">' +
+      '<button class="btn-secondary btn-small" id="galleryCloseBtn">Close</button>' +
       '</div>' +
       '</div>';
     document.body.appendChild(overlay);
@@ -274,12 +276,8 @@
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) overlay.remove();
     });
-    document.getElementById('roomDetailsCloseBtn').addEventListener('click', function () {
+    document.getElementById('galleryCloseBtn').addEventListener('click', function () {
       overlay.remove();
-    });
-    document.getElementById('roomDetailsBookBtn').addEventListener('click', function () {
-      overlay.remove();
-      book(roomId);
     });
   }
 

@@ -16,6 +16,17 @@ function requireAuth() {
   return token;
 }
 
+// Keeps each account on its own set of pages - an owner account typing
+// in explore.html's URL gets sent back to their dashboard instead of
+// seeing the tenant search page, and the same the other way round.
+// Call this right after requireAuth() on pages that are role-specific.
+function requireRole(expectedRole) {
+  const role = getRole();
+  if (role && role !== expectedRole) {
+    window.location.href = (role === 'owner') ? 'owner.html' : 'explore.html';
+  }
+}
+
 // A small styled "are you sure?" box, used instead of the browser's plain
 // confirm() popup so it matches the rest of the app. onConfirm only runs
 // if the user actually clicks the confirm button.
@@ -59,6 +70,7 @@ function logout() {
       localStorage.removeItem('rentora_token');
       localStorage.removeItem('rentora_role');
       localStorage.removeItem('rentora_user_id');
+      localStorage.removeItem('rentora_user_name');
       window.location.href = 'login.html';
     }
   );
@@ -114,3 +126,38 @@ async function apiDelete(path, token) {
   if (!res.ok) throw new Error(await readErrorMessage(res));
   return res.json();
 }
+
+// ---- Navbar profile dropdown -----------------------------------------
+// Every page has the same "R Rentora ... avatar+name" navbar (see
+// .nav-profile in style.css). This fills in the name/initial from
+// whatever was saved at login, and handles opening/closing the menu.
+// It's self-running so pages don't each need to call it themselves.
+
+function toggleNavProfile() {
+  const menu = document.getElementById('navProfileMenu');
+  if (menu) menu.classList.toggle('open');
+}
+
+function initNavProfile() {
+  const nameEl = document.getElementById('navProfileName');
+  const menuNameEl = document.getElementById('navProfileMenuName');
+  const avatarEl = document.getElementById('navAvatar');
+  if (!nameEl && !avatarEl) return; // page doesn't have the profile dropdown
+
+  const name = localStorage.getItem('rentora_user_name') || 'Account';
+  const initial = name.trim().charAt(0).toUpperCase() || 'A';
+
+  if (nameEl) nameEl.textContent = name;
+  if (menuNameEl) menuNameEl.textContent = name;
+  if (avatarEl) avatarEl.textContent = initial;
+
+  // Close the dropdown if the user clicks anywhere outside it.
+  document.addEventListener('click', function (e) {
+    const profile = document.querySelector('.nav-profile');
+    const menu = document.getElementById('navProfileMenu');
+    if (!profile || !menu) return;
+    if (!profile.contains(e.target)) menu.classList.remove('open');
+  });
+}
+
+initNavProfile();

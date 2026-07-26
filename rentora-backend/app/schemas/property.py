@@ -49,6 +49,10 @@ class RoomCreate(BaseModel):
     # labels its rooms with a number.
     floor_number: Optional[int] = None
     room_number: Optional[str] = None
+    # Lets bulk-adding rooms mark some as already occupied right away
+    # (e.g. onboarding an existing PG that already has tenants), instead
+    # of every new room always starting out available.
+    is_available: Optional[bool] = True
 
 
 class RoomOut(BaseModel):

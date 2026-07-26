@@ -147,6 +147,7 @@ def add_room(
         rent_amount=payload.rent_amount,
         floor_number=payload.floor_number,
         room_number=payload.room_number,
+        is_available=payload.is_available if payload.is_available is not None else True,
     )
     db.add(room)
     db.commit()

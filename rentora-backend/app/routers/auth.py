@@ -65,7 +65,7 @@ def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
     db.refresh(user)
 
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
-    return TokenResponse(access_token=token, user_id=user.id, role=user.role)
+    return TokenResponse(access_token=token, user_id=user.id, role=user.role, name=user.name)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -78,7 +78,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Please verify your email first")
 
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
-    return TokenResponse(access_token=token, user_id=user.id, role=user.role)
+    return TokenResponse(access_token=token, user_id=user.id, role=user.role, name=user.name)
 
 
 @router.post("/forgot-password")
@@ -146,4 +146,4 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
         db.refresh(user)
 
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
-    return TokenResponse(access_token=token, user_id=user.id, role=user.role)
+    return TokenResponse(access_token=token, user_id=user.id, role=user.role, name=user.name)

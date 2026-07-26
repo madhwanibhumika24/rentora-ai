@@ -19,6 +19,24 @@
   box-sizing: border-box;
 }
 
+/* Every button across the app grows slightly the moment it's pressed,
+   so clicking always feels tactile instead of static - this one rule
+   covers every button on every page, not just specific ones. */
+button {
+  transition: transform 0.12s ease;
+}
+
+button:active {
+  transform: scale(1.08);
+}
+
+/* This button positions itself with a transform already (to stay
+   vertically centered inside the hero banner), so its "press bigger"
+   effect needs to keep that centering instead of replacing it. */
+.hero-gallery-btn:active {
+  transform: translateY(-50%) scale(1.08);
+}
+
 /* Page background sits behind the card, with padding so the card never
    touches the edges of the screen */
 body {
@@ -412,48 +430,48 @@ body.app-body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
+  padding: 22px 44px;
   background: #fff;
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 14px;
 }
 
 .topnav {
-  min-height: 76px;
+  min-height: 92px;
 }
 
 .nav-logo {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   font-weight: 700;
   color: var(--brand-dark);
-  font-size: 22px;
+  font-size: 25px;
 }
 
 .nav-logo .logo-badge {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
   background: var(--brand);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 23px;
   font-weight: 700;
 }
 
 .nav-links {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .nav-link {
-  padding: 12px 22px;
-  border-radius: 9px;
-  font-size: 16px;
+  padding: 14px 26px;
+  border-radius: 10px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text-secondary);
   text-decoration: none;
@@ -465,25 +483,124 @@ body.app-body {
   color: var(--brand-dark);
 }
 
-/* "Glass" red logout button - semi-transparent red with a blur behind it,
-   so it stands out as the one destructive action in the nav bar. */
-.nav-logout {
-  font-size: 16px;
-  font-weight: 700;
-  color: #b91c1c;
-  background: rgba(220, 38, 38, 0.12);
-  border: 1.5px solid rgba(220, 38, 38, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  padding: 13px 26px;
-  border-radius: 10px;
+/* Profile dropdown - avatar + name that opens a small menu containing
+   Log out, instead of a standalone Log out button always on screen. */
+.nav-profile {
+  position: relative;
+}
+
+.nav-profile-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px 8px 8px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: #f7f6f2;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 
-.nav-logout:hover {
-  background: rgba(220, 38, 38, 0.18);
-  border-color: rgba(220, 38, 38, 0.4);
+.nav-profile-trigger:hover {
+  background: #f0efe9;
+  border-color: var(--border-strong, #ccc);
+}
+
+.nav-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.nav-profile-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-chevron {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+.nav-profile-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  min-width: 200px;
+  padding: 8px;
+  z-index: 50;
+}
+
+.nav-profile-menu.open {
+  display: block;
+}
+
+.nav-profile-menu-name {
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-profile-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  background: none;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.nav-profile-menu-item:hover {
+  background: #f3f2ee;
+}
+
+.nav-profile-menu-item.danger {
+  color: #b91c1c;
+}
+
+.nav-profile-menu-item.danger:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+/* Banner shown on property.html when an owner opens it as a "Tenant
+   preview" from their dashboard, so it's obvious why the page suddenly
+   looks like the tenant-facing site instead of the owner dashboard. */
+.preview-banner {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+  padding: 14px 32px;
+  font-size: 15px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
 }
 
 .page-wrap {
@@ -535,8 +652,8 @@ body.app-body {
 .card-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .card-actions .btn-secondary {
@@ -547,12 +664,17 @@ body.app-body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 16px;
+  /* Without this, every card in a row stretches to match the tallest
+     one next to it - a property with 1 room ends up with a huge blank
+     gap under its buttons just because its neighbour has 5 rooms. This
+     lets each card size to its own content instead. */
+  align-items: start;
 }
 
 .room-card {
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 18px;
+  padding: 22px;
   background: #fff;
   transition: box-shadow 0.15s;
 }
@@ -574,13 +696,44 @@ body.app-body {
 
 .room-card h3 {
   font-size: 16px;
-  margin: 0 0 4px;
+  margin: 0 0 18px;
 }
 
 .room-meta {
   font-size: 13.5px;
   color: var(--text-secondary);
   margin: 0 0 10px;
+}
+
+/* "Glass" light blue pill for the city/address line on owner property
+   cards - same frosted look as the glass-red logout button, just in
+   blue, so the location stands out at a glance. */
+.location-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.12);
+  padding: 6px 14px 6px 10px;
+  border-radius: 999px;
+  margin: 0 0 16px;
+}
+
+.location-badge svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 .room-rent {
@@ -853,6 +1006,60 @@ body.app-body {
   flex: 0 0 auto;
 }
 
+/* "Add room(s)" form on the owner's Rooms tab - each field keeps its own
+   label (instead of relying on placeholders, which disappear the moment
+   you start typing), laid out in one flat grid so it's never ambiguous
+   which box goes with which label. A single grid (not nested flex rows)
+   keeps the wrapping predictable at any modal width. */
+.add-room-form {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  background: #fff;
+}
+
+.add-room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px 22px;
+  margin-bottom: 14px;
+}
+
+/* Text-link style "View all N rooms" toggle below the (possibly
+   collapsed) rooms table - deliberately plain so it reads as a link,
+   not another action button competing with Add room(s). */
+.room-list-view-more {
+  background: none;
+  border: none;
+  color: var(--brand-dark);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+}
+
+.add-room-grid .field-group {
+  margin-bottom: 0;
+}
+
+.add-room-grid .field-group input,
+.add-room-grid .field-group select {
+  width: 100%;
+}
+
+.field-optional {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.field-hint {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
 .complaint-row {
   padding: 14px 16px;
   border: 1px solid var(--border);
@@ -931,6 +1138,41 @@ body.app-body {
   z-index: 1;
 }
 
+/* Sits inside the hero banner itself (right side, vertically centered)
+   instead of floating below it on plain page background - a solid white
+   pill so it stands out clearly against the dark gradient. */
+.hero-gallery-btn {
+  position: absolute;
+  top: 50%;
+  right: 32px;
+  transform: translateY(-50%);
+  z-index: 2;
+  background: #fff;
+  color: var(--brand-dark);
+  border: none;
+  padding: 16px 26px;
+  border-radius: 12px;
+  font-size: 15.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.hero-gallery-btn:hover {
+  transform: translateY(-50%) scale(1.03);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+@media (max-width: 700px) {
+  .hero-gallery-btn {
+    position: static;
+    transform: none;
+    display: block;
+    margin-top: 16px;
+  }
+}
+
 .page-hero .page-title {
   color: #fff;
   font-size: 24px;
@@ -972,10 +1214,10 @@ body.app-body {
 .amenity-chip {
   display: inline-flex;
   align-items: center;
-  padding: 6px 13px;
+  padding: 7px 14px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.16);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 500;
 }
 
@@ -1138,6 +1380,11 @@ body.app-body {
   padding: 24px 26px;
   width: 100%;
   max-width: 320px;
+  /* Scrolls internally instead of getting clipped top/bottom when a
+     modal's content (e.g. the Rooms tab with a long table) is taller
+     than the screen. */
+  max-height: 88vh;
+  overflow-y: auto;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
 }
 
@@ -1179,7 +1426,10 @@ body.app-body {
 .room-details-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 24px;
+  padding-top: 18px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 480px) {
@@ -1188,14 +1438,204 @@ body.app-body {
   }
 }
 
-/* ===== Property "View details" combined box (photos/features/rules) ===== */
-.details-section-label {
+/* Small colored pill next to the rent, showing at a glance whether the
+   room can still be booked - green if yes, grey if it's already taken. */
+.availability-badge {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 11px;
+  border-radius: 20px;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.availability-badge.available {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.availability-badge.unavailable {
+  background: #eee;
+  color: #666;
+}
+
+/* One house rule in the room details popup - a small tick icon instead
+   of relying on .tip-item's bullet, which doesn't line up cleanly at
+   this narrower column width. */
+.rule-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 11px;
+}
+
+.rule-list-item:last-child {
+  margin-bottom: 0;
+}
+
+.rule-list-item svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  stroke: var(--brand-mid);
+}
+
+/* ===== Small icon buttons on an owner's property card ===== */
+/* Pencil (edit), eye (view), trash (delete) - replaces three full-width
+   text buttons with a compact row of icons, so the card takes up a lot
+   less space. */
+.card-icon-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+}
+
+.icon-btn:hover {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+}
+
+/* The delete icon keeps a light red background at all times (not just
+   on hover) so it reads as the one destructive action in the row - same
+   idea as the red logout button. */
+.icon-btn.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.icon-btn.danger:hover {
+  background: #f8d7d7;
+}
+
+/* ===== Compact room rows inside an owner's property card ===== */
+.owner-room-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.owner-room-row:last-child {
+  border-bottom: none;
+}
+
+.owner-room-row .room-label {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owner-room-row .room-rent-mini {
+  font-weight: 700;
+  color: var(--brand-dark);
+  white-space: nowrap;
+}
+
+/* Small text link to expand/collapse the room list when there are more
+   than a few - keeps every card a similar, manageable height instead of
+   one property with 25 rooms towering over the rest. */
+.room-list-toggle {
+  background: none;
+  border: none;
+  color: var(--brand-mid);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0 2px;
+}
+
+/* ===== Available rooms table (tenant-facing property page) ===== */
+/* A flat table instead of a card grid - floor shows up as its own
+   column, so rooms across different floors don't need separate grouped
+   sections (which was breaking the grid layout before). Simpler to read
+   and simpler code. */
+.rooms-table-wrap {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.rooms-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rooms-table th {
+  text-align: left;
   font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-secondary);
-  margin: 0 0 8px;
+  padding: 14px 18px;
+  background: #f7f6f2;
+  border-bottom: 1px solid var(--border);
+}
+
+.rooms-table td {
+  padding: 16px 18px;
+  font-size: 14.5px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.rooms-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rooms-table tbody tr:hover {
+  background: #faf9f6;
+}
+
+@media (max-width: 640px) {
+  .rooms-table-wrap {
+    overflow-x: auto;
+  }
+  .rooms-table {
+    min-width: 560px;
+  }
+}
+
+/* ===== Property "View details" combined box (photos/features/rules) ===== */
+.details-section-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
 }
 
 .details-photo-grid {

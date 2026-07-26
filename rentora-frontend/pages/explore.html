@@ -14,7 +14,17 @@
     <a class="nav-link active" href="explore.html">Explore</a>
     <a class="nav-link" href="dashboard.html">Dashboard</a>
   </div>
-  <button class="nav-logout" onclick="logout()">Log out</button>
+  <div class="nav-profile">
+    <button class="nav-profile-trigger" onclick="toggleNavProfile()">
+      <span class="nav-avatar" id="navAvatar">A</span>
+      <span class="nav-profile-name" id="navProfileName">Account</span>
+      <span class="nav-chevron">&#9662;</span>
+    </button>
+    <div class="nav-profile-menu" id="navProfileMenu">
+      <div class="nav-profile-menu-name" id="navProfileMenuName">Account</div>
+      <button class="nav-profile-menu-item danger" onclick="logout()">Log out</button>
+    </div>
+  </div>
 </div>
 
 <div class="page-wrap">
@@ -70,6 +80,7 @@
 <script src="../js/api.js"></script>
 <script>
   requireAuth();
+  requireRole('tenant');
 
   const CITIES = ['Pune', 'Mumbai', 'Bangalore', 'Delhi', 'Hyderabad', 'Chennai'];
   const ROOM_TYPES = [

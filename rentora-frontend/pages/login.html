@@ -241,6 +241,7 @@
       localStorage.setItem('rentora_token', res.access_token);
       localStorage.setItem('rentora_role', res.role);
       localStorage.setItem('rentora_user_id', res.user_id);
+      localStorage.setItem('rentora_user_name', res.name || '');
 
       showStatus('Logged in as ' + res.role + '. Redirecting...', 'success');
       setTimeout(function () {

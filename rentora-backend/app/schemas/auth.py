@@ -40,3 +40,6 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: int
     role: UserRole
+    # Sent back so the frontend can show "Hi, <name>" in the navbar
+    # without needing a separate API call right after login.
+    name: str

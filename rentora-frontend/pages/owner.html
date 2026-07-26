@@ -13,7 +13,17 @@
   <div class="nav-links">
     <a class="nav-link active" href="owner.html">My properties</a>
   </div>
-  <button class="nav-logout" onclick="logout()">Log out</button>
+  <div class="nav-profile">
+    <button class="nav-profile-trigger" onclick="toggleNavProfile()">
+      <span class="nav-avatar" id="navAvatar">A</span>
+      <span class="nav-profile-name" id="navProfileName">Account</span>
+      <span class="nav-chevron">&#9662;</span>
+    </button>
+    <div class="nav-profile-menu" id="navProfileMenu">
+      <div class="nav-profile-menu-name" id="navProfileMenuName">Account</div>
+      <button class="nav-profile-menu-item danger" onclick="logout()">Log out</button>
+    </div>
+  </div>
 </div>
 
 <div class="page-wrap">
@@ -102,6 +112,7 @@
 <script src="../js/api.js"></script>
 <script>
   requireAuth();
+  requireRole('owner');
   const token = getToken();
 
   let currentProperties = [];
@@ -180,9 +191,10 @@
           '</div>';
         return;
       }
-      // For each property, also fetch its rooms so we can show total
-      // beds vs vacant beds. A room counts as "vacant" while is_available
-      // is true - it flips to false once a booking for it is confirmed.
+      // For each property, also fetch its rooms just to total up beds vs
+      // vacant beds for the summary line - the full per-room list (with
+      // vacant/occupied status) now lives inside "View details" instead
+      // of cluttering the card itself.
       const cards = [];
       for (const p of currentProperties) {
         const rooms = await apiGet('/owner/properties/' + p.id + '/rooms', token).catch(function () { return []; });
@@ -191,41 +203,36 @@
           .filter(function (r) { return r.is_available; })
           .reduce(function (sum, r) { return sum + r.bed_count; }, 0);
 
-        // Show floor and room number for each room, but only the parts the
-        // owner actually filled in - otherwise it's a plain list like before.
-        const roomLines = rooms.map(function (r) {
-          const floorPrefix = (r.floor_number !== null && r.floor_number !== undefined)
-            ? 'Floor ' + r.floor_number + ' · '
-            : '';
-          const roomNumberPrefix = r.room_number ? 'Room ' + r.room_number + ' · ' : '';
-          return '<p class="room-meta" style="margin:2px 0">' +
-            floorPrefix + roomNumberPrefix + r.room_type + ' · ' + r.bed_count + ' bed(s) · Rs ' + r.rent_amount + '/mo · ' +
-            (r.is_available ? 'Vacant' : 'Occupied') +
-            '</p>';
-        }).join('');
-
         // These are just the rough totals the owner typed in when adding
-        // the property - separate from the actual room list below, which
-        // is built one room at a time.
+        // the property - separate from the real room count above.
         const totalsParts = [];
         if (p.total_floors) totalsParts.push(p.total_floors + ' floor(s)');
         if (p.total_rooms) totalsParts.push(p.total_rooms + ' room(s)');
         const floorsLine = totalsParts.length
-          ? '<p class="room-meta" style="margin:2px 0 8px">' + totalsParts.join(' · ') + ' total</p>'
+          ? '<p class="room-meta" style="margin:0 0 10px">' + totalsParts.join(' · ') + ' total</p>'
           : '';
 
         cards.push(
           '<div class="room-card">' +
-          '<h3>' + p.name + '</h3>' +
-          '<p class="room-meta">' + p.address + ', ' + p.city + '</p>' +
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">' +
+          '<div><h3 style="margin-bottom:14px">' + p.name + '</h3>' +
+          '<p class="location-badge">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>' +
+          p.address + ', ' + p.city + '</p></div>' +
+          '<div class="card-icon-actions">' +
+          '<button class="icon-btn" title="Edit name, city, address" onclick="showEditDetails(' + p.id + ')">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>' +
+          '</button>' +
+          '<button class="icon-btn danger" title="Delete property" onclick="deleteProperty(' + p.id + ', \'' + p.name.replace(/'/g, "\\'") + '\')">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
+          '</button>' +
+          '</div>' +
+          '</div>' +
           floorsLine +
-          '<p class="room-meta" style="font-weight:600;color:var(--brand-dark)">' + totalBeds + ' beds total · ' + vacantBeds + ' vacant</p>' +
-          roomLines +
+          '<p class="room-meta" style="font-weight:600;color:var(--brand-dark);margin:0 0 16px">' + totalBeds + ' beds total · ' + vacantBeds + ' vacant</p>' +
           '<div class="card-actions">' +
-          '<button class="btn-secondary btn-small" onclick="addRoom(' + p.id + ')">Add room</button>' +
-          '<button class="btn-secondary btn-small" onclick="showEditDetails(' + p.id + ')">Edit details</button>' +
-          '<button class="btn-secondary btn-small" style="grid-column:1 / -1" onclick="showPropertyDetails(' + p.id + ')">View details (photos, features, rules)</button>' +
-          '<button class="btn-secondary btn-small" style="grid-column:1 / -1;border-color:var(--danger);color:var(--danger)" onclick="deleteProperty(' + p.id + ', \'' + p.name.replace(/'/g, "\\'") + '\')">Delete property</button>' +
+          '<button class="btn-secondary btn-small" style="grid-column:1 / -1" onclick="showPropertyDetails(' + p.id + ')">Edit Property Details</button>' +
+          '<button class="btn-secondary btn-small" style="grid-column:1 / -1" onclick="viewPropertyPublic(' + p.id + ')">Tenant preview</button>' +
           '</div>' +
           '</div>'
         );
@@ -234,6 +241,14 @@
     } catch (err) {
       list.innerHTML = '<div class="empty-state"><p class="empty-state-title">Could not load properties</p></div>';
     }
+  }
+
+  // Opens the same page a tenant sees for this property, in a new tab -
+  // an easy way for the owner to check their listing looks right.
+  // The "preview=1" flag tells property.html to show a banner explaining
+  // this is a preview, and to hide tenant-only actions like Book/chat.
+  function viewPropertyPublic(propertyId) {
+    window.open('property.html?id=' + propertyId + '&preview=1', '_blank');
   }
 
   // Deleting a property is permanent - it takes every room, photo, rule,
@@ -264,77 +279,101 @@
   // can have any number of beds, so that still needs a manual number.
   const ROOM_TYPE_BEDS = { single: 1, double: 2, triple: 3 };
 
-  // Small form (in the same style as the logout/booking confirm boxes)
-  // that asks for room type and rent before adding a room.
-  function addRoom(propertyId) {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML =
-      '<div class="modal-box">' +
-      '<p class="modal-title">Add a room</p>' +
-      '<p class="modal-sub">Tell tenants what this room offers.</p>' +
-      '<select id="roomTypeInput">' +
-      '<option value="single">Single (no sharing)</option>' +
-      '<option value="double" selected>Double sharing</option>' +
-      '<option value="triple">Triple sharing</option>' +
-      '<option value="dorm">Dorm sharing</option>' +
-      '</select>' +
-      '<input id="roomBedCount" type="number" min="1" placeholder="Total beds in this dorm">' +
-      '<input id="roomRent" type="number" min="0" placeholder="Rent per bed (Rs / month)">' +
-      '<input id="roomFloorInput" type="number" min="1" placeholder="Floor number (optional)">' +
-      '<input id="roomNumberInput" type="text" placeholder="Room number (optional, e.g. 101)">' +
-      '<div class="modal-actions">' +
-      '<button class="btn-secondary btn-small" id="roomCancelBtn">Cancel</button>' +
-      '<button class="btn-primary" style="width:auto;padding:9px 18px" id="roomSubmitBtn">Add room</button>' +
-      '</div>' +
-      '</div>';
-    document.body.appendChild(overlay);
+  // Builds a room's row for the table inside the "Rooms" tab of
+  // showPropertyDetails() below.
+  function ownerRoomRowHtml(r) {
+    const floorLabel = (r.floor_number !== null && r.floor_number !== undefined) ? 'Floor ' + r.floor_number : '-';
+    const roomLabel = r.room_type + (r.room_number ? ' - Room ' + r.room_number : '');
+    const badge = '<span class="availability-badge ' + (r.is_available ? 'available' : 'unavailable') + '">' +
+      (r.is_available ? 'Vacant' : 'Occupied') + '</span>';
+    return '<tr>' +
+      '<td>' + roomLabel + '</td>' +
+      '<td>' + floorLabel + '</td>' +
+      '<td>' + r.bed_count + '</td>' +
+      '<td>Rs ' + r.rent_amount + '/mo</td>' +
+      '<td>' + badge + '</td>' +
+      '</tr>';
+  }
 
-    const roomTypeSelect = document.getElementById('roomTypeInput');
-    const bedCountInput = document.getElementById('roomBedCount');
+  // A property can easily have 20-30+ rooms across several floors, and
+  // showing every single row always makes the modal enormous. So the
+  // table starts collapsed to a handful of rows with a "View all" link -
+  // cached here so toggling doesn't need to re-fetch from the server.
+  const ROOM_TABLE_COLLAPSE_LIMIT = 6;
+  let ownerRoomsCache = [];
+  let ownerRoomsExpanded = false;
 
-    // Show the bed count box only for dorms - for single/double/triple
-    // the bed count is filled in automatically and hidden, since asking
-    // for it would just be asking the owner to repeat what they already
-    // picked in the dropdown above.
-    function syncBedCountField() {
-      const type = roomTypeSelect.value;
-      if (type === 'dorm') {
-        bedCountInput.style.display = 'block';
-        bedCountInput.value = '';
-      } else {
-        bedCountInput.style.display = 'none';
-        bedCountInput.value = ROOM_TYPE_BEDS[type];
-      }
+  function renderOwnerRoomsTable() {
+    const tbody = document.getElementById('ownerRoomsTable');
+    const toggleWrap = document.getElementById('ownerRoomsToggleWrap');
+    if (!tbody) return; // the modal isn't open (anymore)
+
+    if (!ownerRoomsCache.length) {
+      tbody.innerHTML = '<tr><td colspan="5">No rooms added yet - use the form below.</td></tr>';
+      if (toggleWrap) toggleWrap.innerHTML = '';
+      return;
     }
-    syncBedCountField();
-    roomTypeSelect.addEventListener('change', syncBedCountField);
 
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) {
-        overlay.remove();
-      }
-    });
+    const visibleRooms = ownerRoomsExpanded
+      ? ownerRoomsCache
+      : ownerRoomsCache.slice(0, ROOM_TABLE_COLLAPSE_LIMIT);
+    tbody.innerHTML = visibleRooms.map(ownerRoomRowHtml).join('');
 
-    document.getElementById('roomCancelBtn').addEventListener('click', function () {
-      overlay.remove();
-    });
+    if (toggleWrap) {
+      toggleWrap.innerHTML = (ownerRoomsCache.length > ROOM_TABLE_COLLAPSE_LIMIT)
+        ? '<button type="button" class="room-list-view-more" onclick="toggleOwnerRoomsExpanded()">' +
+          (ownerRoomsExpanded ? 'Show fewer rooms' : 'View all ' + ownerRoomsCache.length + ' rooms') +
+          '</button>'
+        : '';
+    }
+  }
 
-    document.getElementById('roomSubmitBtn').addEventListener('click', async function () {
-      const roomType = document.getElementById('roomTypeInput').value;
-      const bedCount = parseInt(document.getElementById('roomBedCount').value, 10);
-      const rent = parseFloat(document.getElementById('roomRent').value);
-      const floorInput = document.getElementById('roomFloorInput').value.trim();
-      const roomNumberInput = document.getElementById('roomNumberInput').value.trim();
-      // Both optional - only sent if the owner actually typed something in.
-      const floorNumber = floorInput ? parseInt(floorInput, 10) : null;
-      const roomNumber = roomNumberInput || null;
+  function toggleOwnerRoomsExpanded() {
+    ownerRoomsExpanded = !ownerRoomsExpanded;
+    renderOwnerRoomsTable();
+  }
 
-      if (!bedCount || bedCount < 1 || isNaN(rent) || rent < 0) {
-        showStatus('Enter a valid bed count and rent.', 'error');
-        return;
-      }
+  async function refreshOwnerRoomsTable(propertyId) {
+    const tbody = document.getElementById('ownerRoomsTable');
+    if (!tbody) return; // the modal isn't open (anymore)
+    tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+    ownerRoomsExpanded = false; // start collapsed every time the modal (re)loads
+    try {
+      ownerRoomsCache = await apiGet('/owner/properties/' + propertyId + '/rooms', token);
+      renderOwnerRoomsTable();
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="5">Could not load rooms: ' + err.message + '</td></tr>';
+    }
+  }
 
+  // Same "add a room" form handles both a single room and several at
+  // once - "How many rooms?" just defaults to 1. That way there's only
+  // ever one way to add rooms, instead of a separate flow for "one" vs
+  // "many".
+  function syncAddRoomBedCountField() {
+    const type = document.getElementById('addRoomType').value;
+    const bedCountInput = document.getElementById('addRoomBedCount');
+    const bedCountGroup = document.getElementById('addRoomBedCountGroup');
+    if (type === 'dorm') {
+      bedCountGroup.style.display = 'block';
+      bedCountInput.value = '';
+    } else {
+      bedCountGroup.style.display = 'none';
+      bedCountInput.value = ROOM_TYPE_BEDS[type];
+    }
+  }
+
+  // Actually creates a batch of rooms, one at a time (not all at once,
+  // so a slow connection or a single failure doesn't leave things in a
+  // confusing half-done state). roomNumbers is an array - one entry per
+  // room, each either a string like "101" or null for "no number". Used
+  // by BOTH the manual "Add room(s)" form and the setup chatbot below,
+  // so there's only one place that actually talks to the API for this.
+  async function createRoomsBatch(propertyId, roomType, bedCount, rent, floorNumber, roomNumbers, occupiedNumbers) {
+    let addedCount = 0;
+    for (let i = 0; i < roomNumbers.length; i++) {
+      const roomNumber = roomNumbers[i];
+      const isOccupied = occupiedNumbers.indexOf(roomNumber) !== -1;
       try {
         await apiPost('/owner/properties/' + propertyId + '/rooms', {
           room_type: roomType,
@@ -342,14 +381,62 @@
           rent_amount: rent,
           floor_number: floorNumber,
           room_number: roomNumber,
+          is_available: !isOccupied,
         }, token);
-        overlay.remove();
-        showStatus('Room added!', 'success');
-        loadProperties();
+        addedCount++;
       } catch (err) {
-        showStatus(err.message, 'error');
+        return { addedCount: addedCount, error: err.message };
       }
-    });
+    }
+    return { addedCount: addedCount, error: null };
+  }
+
+  async function submitAddRooms(propertyId) {
+    const roomType = document.getElementById('addRoomType').value;
+    const bedCount = parseInt(document.getElementById('addRoomBedCount').value, 10);
+    const rent = parseFloat(document.getElementById('addRoomRent').value);
+    const floorInput = document.getElementById('addRoomFloor').value.trim();
+    const startInput = document.getElementById('addRoomStartNumber').value.trim();
+    const countInput = document.getElementById('addRoomCount').value.trim();
+    const occupiedInput = document.getElementById('addRoomOccupied').value.trim();
+
+    const floorNumber = floorInput ? parseInt(floorInput, 10) : null;
+    const startNumber = startInput ? parseInt(startInput, 10) : null;
+    const roomCount = countInput ? parseInt(countInput, 10) : 1; // defaults to just 1 room
+    const occupiedCount = occupiedInput ? parseInt(occupiedInput, 10) : 0;
+
+    if (!bedCount || bedCount < 1 || isNaN(rent) || rent < 0) {
+      showStatus('Enter a valid bed count and rent.', 'error');
+      return;
+    }
+    if (!roomCount || roomCount < 1) {
+      showStatus('Enter how many rooms to add (or leave it blank for just 1).', 'error');
+      return;
+    }
+
+    // Build the list of room numbers (or nulls) up front, then hand the
+    // whole batch to createRoomsBatch().
+    const roomNumbers = [];
+    const occupiedNumbers = [];
+    for (let i = 0; i < roomCount; i++) {
+      const roomNumber = startNumber !== null ? String(startNumber + i) : null;
+      roomNumbers.push(roomNumber);
+      if (i < occupiedCount) occupiedNumbers.push(roomNumber);
+    }
+
+    const result = await createRoomsBatch(propertyId, roomType, bedCount, rent, floorNumber, roomNumbers, occupiedNumbers);
+    if (result.error) {
+      showStatus('Added ' + result.addedCount + ' room(s), then stopped: ' + result.error, 'error');
+    } else {
+      showStatus(result.addedCount + ' room(s) added!', 'success');
+      // Reset the form so it's ready for a different floor/batch next time.
+      document.getElementById('addRoomFloor').value = '';
+      document.getElementById('addRoomStartNumber').value = '';
+      document.getElementById('addRoomCount').value = '';
+      document.getElementById('addRoomOccupied').value = '';
+    }
+    refreshOwnerRoomsTable(propertyId);
+    loadProperties();
   }
 
   // ----- Editing a property's basic details (name, city, address) -----
@@ -517,17 +604,18 @@
     );
   }
 
-  // ----- "View details" - one combined box for photos, features, and
-  // rules ----- Instead of three separate buttons/popups, everything
-  // about a property (besides its rooms) lives in one place: a photo
-  // strip up top, then a Features tab and a Rules tab underneath.
+  // ----- "View details" - one combined box for rooms, photos, features,
+  // and rules ----- Instead of separate buttons/popups for each, this is
+  // the one place an owner manages everything about a property: a photo
+  // strip up top, then Rooms / Features / Rules tabs underneath.
 
   function switchDetailsTab(tab) {
-    const isFeatures = tab === 'features';
-    document.getElementById('tabFeaturesBtn').classList.toggle('active', isFeatures);
-    document.getElementById('tabRulesBtn').classList.toggle('active', !isFeatures);
-    document.getElementById('featuresPane').style.display = isFeatures ? 'block' : 'none';
-    document.getElementById('rulesPane').style.display = isFeatures ? 'none' : 'block';
+    document.getElementById('tabRoomsBtn').classList.toggle('active', tab === 'rooms');
+    document.getElementById('tabFeaturesBtn').classList.toggle('active', tab === 'features');
+    document.getElementById('tabRulesBtn').classList.toggle('active', tab === 'rules');
+    document.getElementById('roomsPane').style.display = tab === 'rooms' ? 'block' : 'none';
+    document.getElementById('featuresPane').style.display = tab === 'features' ? 'block' : 'none';
+    document.getElementById('rulesPane').style.display = tab === 'rules' ? 'block' : 'none';
   }
 
   function showPropertyDetails(propertyId) {
@@ -550,9 +638,9 @@
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML =
-      '<div class="modal-box" style="max-width:540px">' +
-      '<p class="modal-title">Property details</p>' +
-      '<p class="modal-sub">Photos, features, and house rules - all optional, tenants see whatever you fill in.</p>' +
+      '<div class="modal-box" style="max-width:980px;max-height:88vh;overflow-y:auto">' +
+      '<p class="modal-title">Edit property details</p>' +
+      '<p class="modal-sub">Rooms, photos, features, and house rules - all managed from one place.</p>' +
 
       '<p class="details-section-label">Photos</p>' +
       '<div id="photoGrid" class="details-photo-grid"></div>' +
@@ -562,11 +650,69 @@
       '</div>' +
 
       '<div class="details-tabs">' +
-      '<button type="button" class="details-tab active" id="tabFeaturesBtn" onclick="switchDetailsTab(\'features\')">Features</button>' +
+      '<button type="button" class="details-tab active" id="tabRoomsBtn" onclick="switchDetailsTab(\'rooms\')">Rooms</button>' +
+      '<button type="button" class="details-tab" id="tabFeaturesBtn" onclick="switchDetailsTab(\'features\')">Features</button>' +
       '<button type="button" class="details-tab" id="tabRulesBtn" onclick="switchDetailsTab(\'rules\')">Rules</button>' +
       '</div>' +
 
-      '<div id="featuresPane" class="details-tab-pane">' +
+      '<div id="roomsPane" class="details-tab-pane">' +
+      '<div class="rooms-table-wrap" style="margin-bottom:16px">' +
+      '<table class="rooms-table">' +
+      '<thead><tr><th>Room</th><th>Floor</th><th>Beds</th><th>Rent</th><th>Status</th></tr></thead>' +
+      '<tbody id="ownerRoomsTable"></tbody>' +
+      '</table>' +
+      '</div>' +
+      '<div id="ownerRoomsToggleWrap" style="text-align:center;margin:-8px 0 16px"></div>' +
+      '<p class="details-section-label">Add room(s)</p>' +
+      '<div class="add-room-form">' +
+
+      '<div class="add-room-grid">' +
+
+      '<div class="field-group">' +
+      '<label class="field-label">Room type</label>' +
+      '<select id="addRoomType">' +
+      '<option value="single">Single (no sharing)</option>' +
+      '<option value="double" selected>Double sharing</option>' +
+      '<option value="triple">Triple sharing</option>' +
+      '<option value="dorm">Dorm sharing</option>' +
+      '</select>' +
+      '</div>' +
+      '<div class="field-group" id="addRoomBedCountGroup" style="display:none">' +
+      '<label class="field-label">Beds per room</label>' +
+      '<input id="addRoomBedCount" type="number" min="1" placeholder="e.g. 4">' +
+      '</div>' +
+      '<div class="field-group">' +
+      '<label class="field-label">Rent per bed (Rs/mo)</label>' +
+      '<input id="addRoomRent" type="number" min="0" placeholder="e.g. 5000">' +
+      '</div>' +
+
+      '<div class="field-group">' +
+      '<label class="field-label">Floor <span class="field-optional">(optional)</span></label>' +
+      '<input id="addRoomFloor" type="number" min="1" placeholder="e.g. 1">' +
+      '</div>' +
+      '<div class="field-group">' +
+      '<label class="field-label">Starting room number <span class="field-optional">(optional)</span></label>' +
+      '<input id="addRoomStartNumber" type="number" min="1" placeholder="e.g. 101">' +
+      '</div>' +
+      '<div class="field-group">' +
+      '<label class="field-label">How many rooms?</label>' +
+      '<input id="addRoomCount" type="number" min="1" placeholder="Default: 1">' +
+      '</div>' +
+      '<div class="field-group">' +
+      '<label class="field-label">Already occupied <span class="field-optional">(optional)</span></label>' +
+      '<input id="addRoomOccupied" type="number" min="0" placeholder="e.g. 2">' +
+      '</div>' +
+
+      '</div>' +
+
+      '<p class="field-hint">If you set a starting room number and add more than one room, they\'re numbered one after another automatically (e.g. 101, 102, 103...). "Already occupied" marks that many of the new rooms as not vacant right away - useful when onboarding a PG that already has tenants.</p>' +
+
+      '<div style="display:flex;justify-content:flex-end">' +
+      '<button class="btn-primary" style="width:auto;padding:10px 18px" id="addRoomSubmitBtn">Add room(s)</button>' +
+      '</div>' +
+      '</div>' +
+
+      '<div id="featuresPane" class="details-tab-pane" style="display:none">' +
       '<div class="feature-check-grid">' + checkboxesHtml + '</div>' +
       '<input id="featuresOtherInput" type="text" placeholder="Other features (comma-separated, optional)">' +
       '<button class="btn-primary btn-small" id="featuresSaveBtn" style="margin-top:10px">Save features</button>' +
@@ -592,6 +738,14 @@
     document.getElementById('detailsCloseBtn').addEventListener('click', function () {
       overlay.remove();
     });
+
+    // Rooms
+    document.getElementById('addRoomType').addEventListener('change', syncAddRoomBedCountField);
+    syncAddRoomBedCountField();
+    document.getElementById('addRoomSubmitBtn').addEventListener('click', function () {
+      submitAddRooms(propertyId);
+    });
+    refreshOwnerRoomsTable(propertyId);
 
     // Highlight a feature tile as soon as its checkbox is ticked/unticked.
     document.querySelectorAll('.featureCheckbox').forEach(function (checkbox) {
