@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rentora - Property</title>
 <link rel="stylesheet" href="../css/style.css">
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body class="app-body">
 
@@ -134,6 +135,20 @@
   let currentPropertyPhotos = [];
   let currentPropertyFeatures = [];
   let currentPropertyRules = [];
+  let currentRoomsById = {}; // so book() can look up a room's rent without re-fetching
+
+  // Empty string means "no Razorpay account set up yet" - book() falls
+  // back to the plain no-payment booking in that case, same pattern
+  // already used for due payments on the dashboard.
+  let razorpayKeyId = '';
+  (async function loadPublicConfig() {
+    try {
+      const cfg = await apiGet('/config/public');
+      razorpayKeyId = cfg.razorpay_key_id || '';
+    } catch (err) {
+      razorpayKeyId = '';
+    }
+  })();
 
   function showStatus(message, type) {
     const el = document.getElementById('statusMsg');
@@ -197,6 +212,9 @@
         const floorB = (b.floor_number === null || b.floor_number === undefined) ? Infinity : b.floor_number;
         return floorA - floorB;
       });
+
+      currentRoomsById = {};
+      sortedRooms.forEach(function (r) { currentRoomsById[r.id] = r; });
 
       list.innerHTML = sortedRooms.map(function (r) {
         const roomLabel = r.room_type + (r.room_number ? ' - Room ' + r.room_number : '');
@@ -282,11 +300,31 @@
   }
 
   function book(roomId) {
+    // No Razorpay account set up yet -> fall back to the old plain
+    // booking (no token payment), same as dues.html's dev-mode pay.
+    if (!razorpayKeyId) {
+      showConfirm(
+        'Book this room?',
+        'This sends a booking request to the owner. You can track its status from your dashboard.',
+        'Book now',
+        function () { confirmBooking(roomId); }
+      );
+      return;
+    }
+
+    // Real gateway flow: show the token amount first, then open Razorpay's
+    // popup once the tenant agrees to pay it.
+    const room = currentRoomsById[roomId];
+    const tokenAmount = room ? Math.round(room.rent_amount * 0.10 * 100) / 100 : null;
+    const amountLine = tokenAmount
+      ? 'A token amount of Rs ' + tokenAmount + ' (10% of the rent) is paid now to confirm your interest. The rest is settled with the owner separately.'
+      : 'A small token amount (10% of the rent) is paid now to confirm your interest.';
+
     showConfirm(
-      'Book this room?',
-      'This sends a booking request to the owner. You can track its status from your dashboard.',
-      'Book now',
-      function () { confirmBooking(roomId); }
+      'Pay token amount to book?',
+      amountLine,
+      'Pay & book',
+      function () { payTokenAndBook(roomId); }
     );
   }
 
@@ -298,6 +336,46 @@
       // err.message now carries the backend's actual reason (e.g. "you
       // already have a booking request for this room"), so show that
       // instead of one generic message for every failure.
+      showStatus(err.message, 'error');
+    }
+  }
+
+  async function payTokenAndBook(roomId) {
+    const token = getToken();
+    try {
+      const order = await apiPost('/tenant/bookings/create-order', { room_id: roomId }, token);
+
+      const checkout = new Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.order_id,
+        name: 'Rentora',
+        description: 'Booking token amount',
+        theme: { color: '#1B2A4A' },
+        handler: async function (result) {
+          try {
+            await apiPost('/tenant/bookings/verify-payment', {
+              room_id: roomId,
+              razorpay_order_id: result.razorpay_order_id,
+              razorpay_payment_id: result.razorpay_payment_id,
+              razorpay_signature: result.razorpay_signature,
+            }, token);
+            showStatus('Token paid and booking requested! Track it from your dashboard.', 'success');
+            loadProperty();
+          } catch (err) {
+            showStatus('Payment went through but the booking could not be confirmed. Please contact support.', 'error');
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            showStatus('Payment cancelled - room was not booked.', 'error');
+          },
+        },
+      });
+
+      checkout.open();
+    } catch (err) {
       showStatus(err.message, 'error');
     }
   }

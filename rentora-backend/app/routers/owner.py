@@ -361,9 +361,15 @@ def update_booking_status(
         raise HTTPException(status_code=404, detail="Booking not found")
 
     booking.status = payload.status
+    room = db.query(Room).filter(Room.id == booking.room_id).first()
     if payload.status == BookingStatus.confirmed:
-        room = db.query(Room).filter(Room.id == booking.room_id).first()
         room.is_available = False
+    elif payload.status == BookingStatus.cancelled and room is not None:
+        # Covers both "owner rejects a request" and "tenant moved out" -
+        # either way the room needs to become bookable again. Without
+        # this, ending a confirmed booking from the owner's side would
+        # leave the room stuck as unavailable forever.
+        room.is_available = True
 
     db.commit()
     db.refresh(booking)

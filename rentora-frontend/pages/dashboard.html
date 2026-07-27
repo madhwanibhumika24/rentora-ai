@@ -171,17 +171,52 @@
         if (b.room_type) meta.push(b.room_type);
         meta.push('Move-in: ' + (b.move_in_date || 'Not set'));
         if (b.rent_amount) meta.push('Rs ' + b.rent_amount + '/mo');
+        if (b.token_paid) meta.push('Token paid: Rs ' + b.token_amount);
+
+        // Same "cancel" action underneath for both cases, but it means two
+        // different things to the tenant: dropping a request that hasn't
+        // been confirmed yet, vs actually ending an active stay and
+        // freeing up the room. The label/confirm text below reflect that.
+        let actionBtn = '';
+        if (b.status === 'requested') {
+          actionBtn = '<button class="btn-secondary btn-small" onclick="cancelBooking(' + b.id + ', false)">Cancel request</button>';
+        } else if (b.status === 'confirmed') {
+          actionBtn = '<button class="btn-secondary btn-small" onclick="cancelBooking(' + b.id + ', true)">End stay / move out</button>';
+        }
 
         return '<div class="booking-row">' +
           '<div><strong>' + title + '</strong>' +
           '<p class="room-meta" style="margin:2px 0 0">' + meta.join(' · ') + '</p></div>' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
           '<span class="status-tag ' + b.status + '">' + b.status + '</span>' +
+          actionBtn +
+          '</div>' +
           '</div>';
       }).join('');
       updateStats();
     } catch (err) {
       list.innerHTML = errorCard('Could not load bookings', 'loadBookings()');
     }
+  }
+
+  // isActiveStay tells us which confirm wording to show - the backend
+  // call is identical either way (it's still just "cancel" under the
+  // hood), but ending an actual tenancy deserves a clearer warning than
+  // dropping a request that was never confirmed.
+  function cancelBooking(bookingId, isActiveStay) {
+    const title = isActiveStay ? 'End your stay?' : 'Cancel this booking request?';
+    const message = isActiveStay
+      ? 'This ends your booking and frees up the room for other tenants. This can\'t be undone.'
+      : 'The owner won\'t see this request anymore. You can always book again later.';
+    showConfirm(title, message, isActiveStay ? 'End stay' : 'Cancel request', async function () {
+      try {
+        await apiPatch('/tenant/bookings/' + bookingId + '/cancel', {}, token);
+        showStatus(isActiveStay ? 'Your stay has ended.' : 'Booking request cancelled.', 'success');
+        loadBookings();
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    });
   }
 
   async function loadDues() {

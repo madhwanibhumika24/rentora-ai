@@ -830,12 +830,18 @@
         return;
       }
       list.innerHTML = currentBookings.map(function (b) {
-        const action = b.status === 'requested'
-          ? '<button class="btn-secondary btn-small" onclick="confirmBooking(' + b.id + ')">Confirm</button>'
-          : '';
+        let action = '';
+        if (b.status === 'requested') {
+          action = '<button class="btn-secondary btn-small" onclick="confirmBooking(' + b.id + ')">Confirm</button>';
+        } else if (b.status === 'confirmed') {
+          // Lets the owner free up a room themselves if a tenant moves out
+          // without cancelling it from their own dashboard first.
+          action = '<button class="btn-secondary btn-small" onclick="endTenancy(' + b.id + ')">End tenancy</button>';
+        }
+        const tokenNote = b.token_paid ? ' · Token paid: Rs ' + b.token_amount : '';
         return '<div class="booking-row">' +
           '<div><strong>Room #' + b.room_id + '</strong> · Tenant #' + b.tenant_id +
-          '<p class="room-meta" style="margin:2px 0 0">Requested ' + new Date(b.created_at).toLocaleDateString() + '</p></div>' +
+          '<p class="room-meta" style="margin:2px 0 0">Requested ' + new Date(b.created_at).toLocaleDateString() + tokenNote + '</p></div>' +
           '<div style="text-align:right">' +
           '<span class="status-tag ' + b.status + '" style="margin-right:10px">' + b.status + '</span>' +
           action +
@@ -852,9 +858,29 @@
       showStatus('Booking confirmed!', 'success');
       loadBookings();
       loadTenants(); // this tenant is now confirmed, so they should appear in the dropdown
+      loadProperties(); // the room just filled up, so the vacant-beds count needs to update
     } catch (err) {
       showStatus('Could not confirm booking.', 'error');
     }
+  }
+
+  function endTenancy(bookingId) {
+    showConfirm(
+      'End this tenancy?',
+      'This frees up the room so it can be booked by someone else. Use this once the tenant has actually moved out.',
+      'End tenancy',
+      async function () {
+        try {
+          await apiPatch('/owner/bookings/' + bookingId, { status: 'cancelled' }, token);
+          showStatus('Tenancy ended - room is available again.', 'success');
+          loadBookings();
+          loadTenants(); // they no longer have a confirmed booking, so drop off the dropdown
+          loadProperties(); // the room is vacant again, so the vacant-beds count needs to update
+        } catch (err) {
+          showStatus('Could not end tenancy: ' + err.message, 'error');
+        }
+      }
+    );
   }
 
   // ----- Raising and tracking rent dues -----

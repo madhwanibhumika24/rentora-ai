@@ -1,9 +1,12 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import razorpay
 
 from app.database import get_db
+from app.config import settings
 from app.core.deps import require_tenant
+from app.core.payments import get_razorpay_client
 from app.models.user import User
 from app.models.property import Property
 from app.models.room import Room
@@ -11,9 +14,14 @@ from app.models.booking import Booking, BookingStatus
 from app.models.property_photo import PropertyPhoto
 from app.models.property_rule import PropertyRule
 from app.models.call_request import CallRequest
-from app.schemas.tenant import BookingCreate, BookingOut
+from app.schemas.tenant import BookingCreate, BookingOut, BookingOrderOut, BookingVerifyRequest
 from app.schemas.call_request import CallRequestCreate
 from app.services.ai import calculate_match_score
+
+# The token amount a tenant pays up front to book a room - 10% of the
+# room's monthly rent. Kept as one constant so both endpoints below (and
+# anyone reading this later) agree on exactly how it's calculated.
+TOKEN_PERCENT = 0.10
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
@@ -140,29 +148,47 @@ def request_call(
     return {"message": "Request sent! The owner will call you soon."}
 
 
-@router.post("/bookings", response_model=BookingOut)
-def create_booking(
-    payload: BookingCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant),
-):
-    room = db.query(Room).filter(Room.id == payload.room_id, Room.is_available == True).first()
+def get_bookable_room(db: Session, room_id: int, tenant_id: int) -> Room:
+    """
+    Shared check used by every booking-creation path below (the plain
+    "dev mode" booking, and both steps of the real token-payment flow):
+    the room has to still be available, and this tenant can't already
+    have an active request/booking on it. Raises a 404/400 if either
+    check fails, otherwise hands back the Room so the caller can use it.
+    """
+    room = db.query(Room).filter(Room.id == room_id, Room.is_available == True).first()
     if room is None:
         raise HTTPException(status_code=404, detail="Room not available")
 
-    # Stop the tenant from sending the same booking request over and over.
-    # A cancelled booking doesn't count, so they can still try again later.
+    # A cancelled booking doesn't count, so a tenant can still try again
+    # after cancelling (or after a previous stay there ended).
     already_booked = (
         db.query(Booking)
         .filter(
-            Booking.tenant_id == current_user.id,
-            Booking.room_id == payload.room_id,
+            Booking.tenant_id == tenant_id,
+            Booking.room_id == room_id,
             Booking.status != BookingStatus.cancelled,
         )
         .first()
     )
     if already_booked is not None:
         raise HTTPException(status_code=400, detail="You already have a booking request for this room.")
+
+    return room
+
+
+@router.post("/bookings", response_model=BookingOut)
+def create_booking(
+    payload: BookingCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant),
+):
+    """
+    The simple "no payment gateway configured" booking path - used as a
+    fallback by the frontend when Razorpay keys aren't set up yet. Books
+    the room directly with no token payment attached.
+    """
+    room = get_bookable_room(db, payload.room_id, current_user.id)
 
     booking = Booking(
         tenant_id=current_user.id,
@@ -171,6 +197,100 @@ def create_booking(
         move_in_date=payload.move_in_date,
     )
     db.add(booking)
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
+@router.post("/bookings/create-order", response_model=BookingOrderOut)
+def create_booking_order(
+    payload: BookingCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant),
+):
+    """
+    Step 1 of the real token-payment flow: check the room can actually be
+    booked, work out the token amount (10% of rent), and ask Razorpay to
+    create an "order" for it. The frontend uses this to open the Razorpay
+    popup - no money moves yet, no Booking row is created yet either.
+    """
+    room = get_bookable_room(db, payload.room_id, current_user.id)
+
+    client = get_razorpay_client()
+    if client is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Payment gateway not configured. Use the dev-mode booking instead.",
+        )
+
+    token_amount = round(float(room.rent_amount) * TOKEN_PERCENT, 2)
+    amount_in_paise = int(round(token_amount * 100))
+
+    order = client.order.create({
+        "amount": amount_in_paise,
+        "currency": "INR",
+        "receipt": f"booking_room_{room.id}",
+    })
+
+    return BookingOrderOut(
+        order_id=order["id"],
+        amount=amount_in_paise,
+        currency="INR",
+        key_id=settings.razorpay_key_id,
+        room_id=room.id,
+        token_amount=token_amount,
+    )
+
+
+@router.post("/bookings/verify-payment", response_model=BookingOut)
+def verify_booking_payment(
+    payload: BookingVerifyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant),
+):
+    """
+    Step 2 of the real token-payment flow: after the tenant pays inside
+    the Razorpay popup, the frontend sends back the order/payment/
+    signature values. We verify the signature ourselves (so a booking
+    can't be faked by just calling this endpoint with made-up values),
+    then finally create the Booking - re-checking the room is still
+    bookable in case someone else grabbed it while the popup was open.
+    """
+    room = get_bookable_room(db, payload.room_id, current_user.id)
+
+    client = get_razorpay_client()
+    if client is None:
+        raise HTTPException(status_code=400, detail="Payment gateway not configured")
+
+    try:
+        client.utility.verify_payment_signature({
+            "razorpay_order_id": payload.razorpay_order_id,
+            "razorpay_payment_id": payload.razorpay_payment_id,
+            "razorpay_signature": payload.razorpay_signature,
+        })
+    except razorpay.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+
+    token_amount = round(float(room.rent_amount) * TOKEN_PERCENT, 2)
+
+    booking = Booking(
+        tenant_id=current_user.id,
+        room_id=room.id,
+        status=BookingStatus.requested,
+        move_in_date=payload.move_in_date,
+        token_amount=token_amount,
+        token_paid=True,
+        razorpay_payment_id=payload.razorpay_payment_id,
+    )
+    db.add(booking)
+
+    # Real money has now changed hands, so the room is reserved right
+    # away instead of waiting for the owner to confirm - otherwise a
+    # second tenant could pay a token for the same room before the owner
+    # gets around to it. (The plain no-payment "dev mode" booking above
+    # doesn't do this - it's just a request, nothing's been paid yet.)
+    room.is_available = False
+
     db.commit()
     db.refresh(booking)
     return booking
@@ -196,6 +316,8 @@ def list_my_bookings(
             "city": b.room.property.city,
             "room_type": b.room.room_type,
             "rent_amount": float(b.room.rent_amount),
+            "token_amount": float(b.token_amount) if b.token_amount is not None else None,
+            "token_paid": b.token_paid,
         })
     return results
 
@@ -216,9 +338,11 @@ def cancel_booking(
     if booking.status == BookingStatus.cancelled:
         raise HTTPException(status_code=400, detail="This booking is already cancelled")
 
-    # If the room had been reserved for this booking, free it back up
-    # so other tenants can book it again.
-    if booking.status == BookingStatus.confirmed:
+    # If the room had been reserved for this booking, free it back up so
+    # other tenants can book it again. That covers two cases now: the
+    # owner already confirmed it, OR the tenant paid a token (which
+    # reserves the room immediately, before the owner confirms anything).
+    if booking.status == BookingStatus.confirmed or booking.token_paid:
         room = db.query(Room).filter(Room.id == booking.room_id).first()
         if room is not None:
             room.is_available = True

@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, ForeignKey, Enum, Date, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, Enum, Date, DateTime, Numeric, Boolean, String
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -21,6 +21,14 @@ class Booking(Base):
     status = Column(Enum(BookingStatus), nullable=False, default=BookingStatus.requested)
     move_in_date = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Token payment - a small deposit (10% of rent) paid at booking time to
+    # show the tenant is serious. Nullable/false by default so bookings
+    # made before this feature (or through the no-gateway dev fallback)
+    # still work fine without one.
+    token_amount = Column(Numeric(10, 2), nullable=True)
+    token_paid = Column(Boolean, nullable=False, default=False)
+    razorpay_payment_id = Column(String(100), nullable=True)
 
     tenant = relationship("User", back_populates="bookings")
     room = relationship("Room", back_populates="bookings")

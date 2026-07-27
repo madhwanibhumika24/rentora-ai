@@ -6,6 +6,7 @@ import razorpay
 from app.database import get_db
 from app.config import settings
 from app.core.deps import require_owner, require_tenant
+from app.core.payments import get_razorpay_client
 from app.models.user import User
 from app.models.due import Due, DueStatus
 from app.models.payment import Payment
@@ -15,18 +16,6 @@ from app.models.property import Property
 from app.schemas.due import DueCreate, DueOut, PaymentOut, OrderOut, VerifyPaymentRequest
 
 router = APIRouter(tags=["dues"])
-
-
-def get_razorpay_client():
-    """
-    Returns a Razorpay client if keys are set in .env, otherwise None.
-    Keeping this as a small function (instead of always making a client)
-    means the app still works with the simple "dev mode" pay button
-    when nobody has set up a real Razorpay account yet.
-    """
-    if not settings.razorpay_key_id or not settings.razorpay_key_secret:
-        return None
-    return razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
 
 
 @router.post("/owner/dues", response_model=DueOut)
