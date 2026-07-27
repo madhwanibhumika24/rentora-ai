@@ -347,6 +347,19 @@ select.field-input {
   background: var(--brand-dark);
 }
 
+/* Without this, a disabled Book button looked exactly like an active one
+   (same solid navy fill) - nothing told you at a glance that a room was
+   already taken until you separately read the status column. */
+.btn-primary:disabled {
+  background: var(--surface-1, #f1efe8);
+  color: var(--text-muted, #9a9890);
+  cursor: not-allowed;
+}
+
+.btn-primary:disabled:hover {
+  background: var(--surface-1, #f1efe8);
+}
+
 .google-btn-wrap {
   display: flex;
   justify-content: center;
@@ -424,6 +437,11 @@ body.app-body {
   align-items: initial;
   justify-content: initial;
   background: #f7f6f2;
+  /* Safety net: if one element somewhere ever overflows its container
+     again (like the property card header did), this stops the whole
+     page from becoming sideways-scrollable because of it, instead of
+     just clipping that one element. */
+  overflow-x: hidden;
 }
 
 .topnav {
@@ -445,9 +463,20 @@ body.app-body {
   display: flex;
   align-items: center;
   gap: 16px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--brand-dark);
-  font-size: 25px;
+  font-size: 28px;
+  font-family: 'Unbounded', -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Two-tone wordmark: "Rent" stays the brand navy, "ora" picks up the
+   lighter brand-mid blue plus a thin underline - just a visual split for
+   contrast, not two separate words. */
+.nav-logo-accent {
+  color: var(--brand-mid);
+  border-bottom: 3px solid var(--brand-mid);
+  padding-bottom: 2px;
 }
 
 .nav-logo .logo-badge {
@@ -662,7 +691,7 @@ body.app-body {
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
   gap: 16px;
   /* Without this, every card in a row stretches to match the tallest
      one next to it - a property with 1 room ends up with a huge blank
@@ -677,6 +706,15 @@ body.app-body {
   padding: 22px;
   background: #fff;
   transition: box-shadow 0.15s;
+  /* Without this, a card with long unbreakable text inside it (like the
+     one-line address badge) can force its OWN grid column wider than
+     the space actually available - which then forces the whole grid,
+     and the whole page, wider than the screen. min-width:0 lets the
+     grid shrink this card down to the column width it was actually
+     given, so the text inside has to wrap/truncate instead of dragging
+     the page sideways. This is what was cutting off text on several
+     unrelated parts of the page at once at in-between (tablet) widths. */
+  min-width: 0;
 }
 
 .room-card:hover {
@@ -858,6 +896,12 @@ body.app-body {
 .status-tag.cancelled {
   background: #eee;
   color: #666;
+}
+
+/* Faded back so a cancelled booking reads as past history, not
+   something competing for attention next to active/pending ones. */
+.booking-row-cancelled {
+  opacity: 0.6;
 }
 
 /* ===== Chips (quick filters) ===== */
@@ -1221,12 +1265,66 @@ body.app-body {
   font-weight: 500;
 }
 
+/* ===== Big tab switcher (tenant dashboard: Overview / Transactions) ===== */
+/* Deliberately bigger and more button-like than .details-tab (the small
+   underline tabs used inside modals) - this sits right on the page, so
+   it needs to read as a real navigation choice, not a minor toggle. */
+.dash-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 22px 0 6px;
+}
+
+.dash-tab {
+  padding: 13px 28px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  background: #f3f2ee;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Solid brand fill (not just a light tint) so the active tab is
+   unmistakable at a glance, not just slightly different from the rest. */
+.dash-tab.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(27, 42, 74, 0.25);
+}
+
+/* One month's worth of transactions, grouped under a heading so a long
+   history reads as "July 2026, June 2026, ..." instead of one flat list
+   with no sense of time. */
+.transaction-month-heading {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  margin: 22px 0 10px;
+}
+
+.transaction-month-heading:first-child {
+  margin-top: 0;
+}
+
 /* ===== Two-column layout (main content + sidebar) ===== */
 .layout-grid {
   display: grid;
   grid-template-columns: 1fr 300px;
   gap: 28px;
   align-items: start;
+}
+
+/* Same reasoning as .room-card above - the "1fr" main column shouldn't
+   be forced wider than its share just because something inside it (a
+   card grid, a form row) wants more room than that. */
+.layout-grid > * {
+  min-width: 0;
 }
 
 @media (max-width: 860px) {
@@ -1907,4 +2005,75 @@ body.app-body {
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* ===== Small-screen (phone) tweaks for the app pages ===== */
+/* Most layouts (card grids, stat cards, the add-room form) already use
+   CSS Grid with auto-fit/auto-fill, so they naturally drop to a single
+   column on a narrow screen with no rules needed here. This block only
+   covers the handful of things that stayed a FIXED size at every screen
+   width until now - the navbar and page padding mainly, since those use
+   plain px values instead of a grid. */
+@media (max-width: 600px) {
+  .topnav {
+    padding: 14px 18px;
+    min-height: auto;
+  }
+
+  .nav-logo {
+    font-size: 20px;
+    gap: 10px;
+  }
+
+  .nav-logo .logo-badge {
+    width: 40px;
+    height: 40px;
+    font-size: 17px;
+  }
+
+  .nav-link {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .nav-profile-trigger {
+    padding: 5px 12px 5px 5px;
+  }
+
+  .nav-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .nav-profile-name {
+    max-width: 90px;
+    font-size: 14px;
+  }
+
+  .page-wrap {
+    padding: 18px 16px 40px;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+
+  .page-hero {
+    padding: 20px 18px;
+  }
+
+  .due-row,
+  .booking-row {
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  /* These two modals set their own width inline in the page's JS
+     (560px and 980px) so they can fit more content on desktop - on a
+     phone that's wider than the screen itself, so this forces both
+     back down to fit no matter what inline width they were given. */
+  .modal-box {
+    max-width: calc(100vw - 32px) !important;
+  }
 }

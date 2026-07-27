@@ -4,13 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rentora - Property</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body class="app-body">
 
 <div class="topnav">
-  <div class="nav-logo"><div class="logo-badge">R</div> Rentora</div>
+  <div class="nav-logo"><div class="logo-badge"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 10 L12 3 L20 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><text x="12" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="'Unbounded', sans-serif">R</text></svg></div> <span>Rent<span class="nav-logo-accent">ora</span></span></div>
   <div class="nav-links">
     <a class="nav-link" href="explore.html">Explore</a>
     <a class="nav-link" href="dashboard.html">Dashboard</a>
@@ -94,25 +97,10 @@
   <p class="status-msg" id="statusMsg"></p>
 </div>
 
-<!-- Floating assistant bubble - only shown once the tenant has at least
-     one active booking (any property), same rule the backend itself
-     already uses. It's a simple menu bot, not real AI - it just answers
-     from a fixed set of options. -->
-<button type="button" id="botBubble" class="bot-bubble" style="display:none" onclick="toggleBotPanel()">
-  <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-</button>
-<div id="botPanel" class="bot-panel" style="display:none">
-  <div class="bot-panel-header">
-    <span>Rentora Assistant</span>
-    <button type="button" class="bot-panel-close" onclick="toggleBotPanel()">&times;</button>
-  </div>
-  <div id="botMessages" class="bot-messages"></div>
-  <div id="botOptions" class="bot-options"></div>
-  <div class="bot-input-row">
-    <input id="botFreeTextInput" type="text" placeholder="Or type your own question...">
-    <button class="btn-secondary btn-small" onclick="sendBotFreeText()">Send</button>
-  </div>
-</div>
+<!-- The floating "Rentora Assistant" bot used to live here, but it isn't
+     tied to any one property or owner, so it now lives as its own tab
+     on the tenant dashboard instead. This page keeps the "chat with the
+     owner" card below, which IS specific to this property. -->
 
 <script src="../js/api.js"></script>
 <script>
@@ -172,8 +160,8 @@
       // floating below it on plain page background.
       document.getElementById('propertyHeader').innerHTML =
         '<div class="page-hero-inner">' +
-        '<h1 class="page-title">' + p.name + '</h1>' +
-        '<p class="page-sub">' + p.address + ', ' + p.city + '</p>' +
+        '<h1 class="page-title">' + escapeHtml(p.name) + '</h1>' +
+        '<p class="page-sub">' + escapeHtml(p.address) + ', ' + escapeHtml(p.city) + '</p>' +
         '</div>' +
         '<button type="button" class="hero-gallery-btn" onclick="showPropertyGallery()">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" style="vertical-align:-3px;margin-right:7px"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.5-3.5a2 2 0 0 0-2.8 0L5 21"></path></svg>' +
@@ -197,7 +185,7 @@
           '<p class="empty-state-title">No rooms listed yet</p>' +
           '<p class="empty-state-sub">The owner hasn\'t added any rooms to this property yet.</p>' +
           '</div>';
-        if (!isPreview) setupChatAndBot(p.owner_id);
+        if (!isPreview) setupOwnerChat(p.owner_id);
         return;
       }
 
@@ -217,15 +205,20 @@
       sortedRooms.forEach(function (r) { currentRoomsById[r.id] = r; });
 
       list.innerHTML = sortedRooms.map(function (r) {
-        const roomLabel = r.room_type + (r.room_number ? ' - Room ' + r.room_number : '');
+        const roomLabel = escapeHtml(r.room_type) + (r.room_number ? ' - Room ' + escapeHtml(r.room_number) : '');
         const floorLabel = (r.floor_number !== null && r.floor_number !== undefined) ? 'Floor ' + r.floor_number : '-';
         const statusBadge = '<span class="availability-badge ' + (r.is_available ? 'available' : 'unavailable') + '">' +
           (r.is_available ? 'Available' : 'Not available') + '</span>';
         // In preview mode there's no Book button at all - the owner is
         // just checking how the listing looks, not actually booking.
+        // For a taken room, the button itself now says so (greyed out,
+        // "Booked") instead of relying only on the separate status
+        // column - easier to scan a long room list at a glance.
         const actionCell = isPreview
           ? ''
-          : '<button class="btn-primary btn-small" ' + (r.is_available ? '' : 'disabled') + ' onclick="book(' + r.id + ')">Book</button>';
+          : r.is_available
+            ? '<button class="btn-primary btn-small" onclick="book(' + r.id + ')">Book</button>'
+            : '<button class="btn-primary btn-small" disabled>Booked</button>';
         return '<tr>' +
           '<td><strong>' + roomLabel + '</strong></td>' +
           '<td>' + floorLabel + '</td>' +
@@ -236,7 +229,7 @@
           '</tr>';
       }).join('');
 
-      if (!isPreview) setupChatAndBot(p.owner_id);
+      if (!isPreview) setupOwnerChat(p.owner_id);
     } catch (err) {
       // Show the real backend reason instead of a generic message - makes
       // it much easier to tell what actually went wrong.
@@ -260,14 +253,14 @@
 
     const featuresHtml = currentPropertyFeatures.length
       ? '<div class="amenity-chip-row" style="margin-top:0">' +
-        currentPropertyFeatures.map(function (f) { return '<span class="amenity-chip" style="background:var(--brand-light);color:var(--brand-dark)">' + f + '</span>'; }).join('') +
+        currentPropertyFeatures.map(function (f) { return '<span class="amenity-chip" style="background:var(--brand-light);color:var(--brand-dark)">' + escapeHtml(f) + '</span>'; }).join('') +
         '</div>'
       : '<p class="room-meta" style="margin:0">Not listed yet.</p>';
 
     const checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
     const rulesHtml = currentPropertyRules.length
       ? currentPropertyRules.map(function (rule) {
-          return '<div class="rule-list-item">' + checkIcon + '<span>' + rule + '</span></div>';
+          return '<div class="rule-list-item">' + checkIcon + '<span>' + escapeHtml(rule) + '</span></div>';
         }).join('')
       : '<p class="room-meta" style="margin:0">Not listed yet.</p>';
 
@@ -301,7 +294,7 @@
 
   function book(roomId) {
     // No Razorpay account set up yet -> fall back to the old plain
-    // booking (no token payment), same as dues.html's dev-mode pay.
+    // booking (no deposit payment), same as dues.html's dev-mode pay.
     if (!razorpayKeyId) {
       showConfirm(
         'Book this room?',
@@ -312,16 +305,17 @@
       return;
     }
 
-    // Real gateway flow: show the token amount first, then open Razorpay's
-    // popup once the tenant agrees to pay it.
+    // Real gateway flow: show the deposit amount first, then open
+    // Razorpay's popup once the tenant agrees to pay it. The deposit is
+    // one full month's rent - same as a normal PG security deposit.
     const room = currentRoomsById[roomId];
-    const tokenAmount = room ? Math.round(room.rent_amount * 0.10 * 100) / 100 : null;
-    const amountLine = tokenAmount
-      ? 'A token amount of Rs ' + tokenAmount + ' (10% of the rent) is paid now to confirm your interest. The rest is settled with the owner separately.'
-      : 'A small token amount (10% of the rent) is paid now to confirm your interest.';
+    const depositAmount = room ? room.rent_amount : null;
+    const amountLine = depositAmount
+      ? 'A deposit of Rs ' + depositAmount + ' (equal to one month\'s rent) is paid now to confirm your booking.'
+      : 'A deposit equal to one month\'s rent is paid now to confirm your booking.';
 
     showConfirm(
-      'Pay token amount to book?',
+      'Pay deposit to book?',
       amountLine,
       'Pay & book',
       function () { payTokenAndBook(roomId); }
@@ -351,7 +345,7 @@
         currency: order.currency,
         order_id: order.order_id,
         name: 'Rentora',
-        description: 'Booking token amount',
+        description: 'Booking deposit',
         theme: { color: '#1B2A4A' },
         handler: async function (result) {
           try {
@@ -361,7 +355,7 @@
               razorpay_payment_id: result.razorpay_payment_id,
               razorpay_signature: result.razorpay_signature,
             }, token);
-            showStatus('Token paid and booking requested! Track it from your dashboard.', 'success');
+            showStatus('Deposit paid and booking requested! Track it from your dashboard.', 'success');
             loadProperty();
           } catch (err) {
             showStatus('Payment went through but the booking could not be confirmed. Please contact support.', 'error');
@@ -418,27 +412,20 @@
     });
   }
 
-  // ----- Chat with owner + the assistant bot -----
-  // Both only show up once the tenant has actually booked - chat needs a
-  // CONFIRMED booking for this exact property (there's no point chatting
-  // with an owner you're not renting from), while the bot bubble just
-  // needs any active booking anywhere, matching how the bot's own
-  // backend logic already checks it.
+  // ----- Chat with owner -----
+  // Only shows up once the tenant has a CONFIRMED booking for THIS
+  // exact property - there's no point chatting with an owner you're
+  // not renting from.
 
   let chatOwnerId = null;
   let chatPollTimer = null;
 
-  async function setupChatAndBot(ownerId) {
+  async function setupOwnerChat(ownerId) {
     let myBookings = [];
     try {
       myBookings = await apiGet('/tenant/bookings', getToken());
     } catch (err) {
-      return; // can't tell either way - just leave both hidden
-    }
-
-    const hasActiveBooking = myBookings.some(function (b) { return b.status !== 'cancelled'; });
-    if (hasActiveBooking) {
-      document.getElementById('botBubble').style.display = 'flex';
+      return; // can't tell either way - just leave it hidden
     }
 
     const hasConfirmedHere = myBookings.some(function (b) {
@@ -465,7 +452,7 @@
       }
       box.innerHTML = messages.map(function (m) {
         const mine = m.sender_id === myUserId;
-        return '<div class="chat-bubble ' + (mine ? 'mine' : 'theirs') + '">' + m.text + '</div>';
+        return '<div class="chat-bubble ' + (mine ? 'mine' : 'theirs') + '">' + escapeHtml(m.text) + '</div>';
       }).join('');
       box.scrollTop = box.scrollHeight; // jump to the latest message
     } catch (err) {
@@ -501,100 +488,9 @@
     }
   });
 
-  // ----- The assistant bot (a simple menu, not real AI) -----
-
-  const BOT_INTENT_MAP = {
-    'Raise a complaint': 'raise_complaint',
-    'More details about my PG': 'pg_details',
-    'I have a doubt': 'doubt',
-    'Request a call': 'request_call',
-  };
-
-  function toggleBotPanel() {
-    const panel = document.getElementById('botPanel');
-    const isOpen = panel.style.display === 'flex';
-    panel.style.display = isOpen ? 'none' : 'flex';
-    // First time it's opened, kick things off with the menu.
-    if (!isOpen && !document.getElementById('botMessages').dataset.started) {
-      document.getElementById('botMessages').dataset.started = 'true';
-      sendBotIntent('menu');
-    }
-  }
-
-  function appendBotMessage(from, text) {
-    const box = document.getElementById('botMessages');
-    const bubble = document.createElement('div');
-    bubble.className = 'chat-bubble ' + (from === 'me' ? 'mine' : 'theirs');
-    bubble.textContent = text;
-    box.appendChild(bubble);
-    box.scrollTop = box.scrollHeight;
-  }
-
-  async function sendBotIntent(intent, text) {
-    try {
-      const res = await apiPost('/bot/message', { intent: intent, text: text || null }, getToken());
-      appendBotMessage('bot', res.reply);
-      renderBotOptions(res.options || []);
-    } catch (err) {
-      appendBotMessage('bot', 'Sorry, something went wrong on my end.');
-    }
-  }
-
-  function renderBotOptions(options) {
-    const box = document.getElementById('botOptions');
-    box.innerHTML = options.map(function (opt) {
-      return '<button type="button" class="chip" onclick="handleBotOption(\'' + opt.replace(/'/g, "\\'") + '\')">' + opt + '</button>';
-    }).join('');
-  }
-
-  function handleBotOption(optionLabel) {
-    appendBotMessage('me', optionLabel);
-    document.getElementById('botOptions').innerHTML = '';
-
-    if (optionLabel === 'Explore rooms') {
-      window.location.href = 'explore.html';
-      return;
-    }
-    // "Request a call" uses the real request-call form (which actually
-    // saves a call request the owner can see) instead of the bot's own
-    // canned reply, which doesn't save anything.
-    if (optionLabel === 'Request a call') {
-      showRequestCall();
-      return;
-    }
-    if (BOT_INTENT_MAP[optionLabel]) {
-      sendBotIntent(BOT_INTENT_MAP[optionLabel]);
-      return;
-    }
-    // Complaint categories and anything else this simple bot doesn't
-    // actually handle - point to the real form instead of pretending.
-    appendBotMessage('bot', 'For that, please use the matching form on your dashboard so the owner gets the full details.');
-  }
-
-  // Free-typed questions always send with the "doubt" intent plus the
-  // typed text - that's the only intent this simple bot can attach real
-  // text to (see bot.py). It doesn't run any real AI over it, but it
-  // does acknowledge what was typed instead of ignoring it.
-  function sendBotFreeText() {
-    const input = document.getElementById('botFreeTextInput');
-    const text = input.value.trim();
-    if (!text) return;
-    appendBotMessage('me', text);
-    input.value = '';
-    sendBotIntent('doubt', text);
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    const botFreeTextInput = document.getElementById('botFreeTextInput');
-    if (botFreeTextInput) {
-      botFreeTextInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          sendBotFreeText();
-        }
-      });
-    }
-  });
+  // The "Rentora Assistant" bot used to live here as a floating panel -
+  // it's now its own tab on the tenant dashboard instead (dashboard.html),
+  // since it isn't tied to any specific property.
 
   loadProperty();
 </script>

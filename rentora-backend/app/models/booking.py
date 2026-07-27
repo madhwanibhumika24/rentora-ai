@@ -22,10 +22,11 @@ class Booking(Base):
     move_in_date = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # Token payment - a small deposit (10% of rent) paid at booking time to
-    # show the tenant is serious. Nullable/false by default so bookings
-    # made before this feature (or through the no-gateway dev fallback)
-    # still work fine without one.
+    # Deposit payment - one month's rent, paid at booking time to secure
+    # the room. Nullable/false by default so bookings made before this
+    # feature (or through the no-gateway dev fallback) still work fine
+    # without one. (DB columns keep the "token_*" name from an earlier
+    # version of this feature, back when it was a smaller booking fee.)
     token_amount = Column(Numeric(10, 2), nullable=True)
     token_paid = Column(Boolean, nullable=False, default=False)
     razorpay_payment_id = Column(String(100), nullable=True)

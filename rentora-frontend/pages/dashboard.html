@@ -4,13 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rentora - Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="app-body">
 
 <div class="topnav">
-  <div class="nav-logo"><div class="logo-badge">R</div> Rentora</div>
+  <div class="nav-logo"><div class="logo-badge"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 10 L12 3 L20 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><text x="12" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="'Unbounded', sans-serif">R</text></svg></div> <span>Rent<span class="nav-logo-accent">ora</span></span></div>
   <div class="nav-links">
     <a class="nav-link" href="explore.html">Explore</a>
     <a class="nav-link active" href="dashboard.html">Dashboard</a>
@@ -31,33 +35,44 @@
 <div class="page-wrap">
   <div class="page-hero hero-dashboard">
     <div class="page-hero-inner">
-      <h1 class="page-title">Welcome back</h1>
-      <p class="page-sub">Here's what's happening with your stay</p>
+      <h1 class="page-title" id="greetingTitle">Welcome back</h1>
+      <p class="page-sub">Your rent, bookings, and complaints, in one place</p>
     </div>
   </div>
 
-  <div class="stat-cards">
-    <div class="stat-card grad-purple">
-      <p class="stat-card-label">Active bookings</p>
-      <p class="stat-card-value" id="statActiveBookings">-</p>
-    </div>
-    <div class="stat-card grad-warm">
-      <p class="stat-card-label">Pending dues</p>
-      <p class="stat-card-value" id="statPendingDues">-</p>
-    </div>
-    <div class="stat-card grad-teal">
-      <p class="stat-card-label">Next due date</p>
-      <p class="stat-card-value" id="statNextDue" style="font-size:16px">-</p>
-    </div>
+  <div class="dash-tabs">
+    <button class="dash-tab active" id="tabBtnDues" onclick="switchDashTab('dues')">Pending Dues</button>
+    <button class="dash-tab" id="tabBtnTransactions" onclick="switchDashTab('transactions')">Transactions</button>
+    <button class="dash-tab" id="tabBtnAssistant" onclick="switchDashTab('assistant')">Rentora Assistant</button>
   </div>
 
-  <div class="layout-grid" style="margin-top:26px">
+  <div class="layout-grid">
     <div>
-      <p class="section-title" style="margin-top:0">Bookings</p>
-      <div id="bookingList"></div>
+      <div id="duesPane">
+        <p class="section-title" style="margin-top:0">Pending dues</p>
+        <div id="dueList"></div>
+      </div>
 
-      <p class="section-title">Dues</p>
-      <div id="dueList"></div>
+      <div id="transactionsPane" style="display:none">
+        <p class="section-title" style="margin-top:0">All transactions</p>
+        <p class="page-sub" style="margin-top:-14px">Every due and deposit you've paid, across every month.</p>
+        <div id="transactionList"></div>
+      </div>
+
+      <div id="assistantPane" style="display:none">
+        <p class="section-title" style="margin-top:0">Rentora Assistant</p>
+        <div class="side-card" style="padding:0;display:flex;flex-direction:column;height:440px;overflow:hidden">
+          <div id="dashBotMessages" class="bot-messages" style="padding:20px 20px 4px;flex:1"></div>
+          <div id="dashBotOptions" class="bot-options" style="padding:0 20px 12px"></div>
+          <div class="bot-input-row" style="padding:14px 20px;border-top:1px solid var(--border);margin:0">
+            <input id="dashBotFreeTextInput" type="text" placeholder="Or type your own question...">
+            <button class="btn-secondary btn-small" onclick="sendDashBotFreeText()">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="section-title">Bookings</p>
+      <div id="bookingList"></div>
 
       <p class="section-title">Complaints</p>
       <div class="complaint-form">
@@ -100,6 +115,18 @@
 
   let currentBookings = [];
   let currentDues = [];
+  let currentTransactions = [];
+
+  // "Welcome back" swapped for a time-aware greeting with the tenant's
+  // actual name - reads friendlier, and confirms at a glance that
+  // they're logged into the right account.
+  (function showGreeting() {
+    const hour = new Date().getHours();
+    const timeOfDay = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const firstName = (localStorage.getItem('rentora_user_name') || '').split(' ')[0];
+    document.getElementById('greetingTitle').textContent =
+      timeOfDay + (firstName ? ', ' + firstName : '');
+  })();
 
   // Filled in by loadConfig() below. If this stays empty, it means nobody
   // has set up Razorpay yet, so we fall back to the simple dev-mode pay.
@@ -120,6 +147,27 @@
     el.className = 'status-msg show ' + type;
   }
 
+  // Switches between the three tab panes (Pending Dues / Transactions /
+  // Rentora Assistant) - only one is ever visible at a time. Bookings
+  // and Complaints aren't part of this switching at all; they always
+  // stay visible underneath, regardless of which tab is open.
+  function switchDashTab(tab) {
+    document.getElementById('duesPane').style.display = tab === 'dues' ? '' : 'none';
+    document.getElementById('transactionsPane').style.display = tab === 'transactions' ? '' : 'none';
+    document.getElementById('assistantPane').style.display = tab === 'assistant' ? '' : 'none';
+    document.getElementById('tabBtnDues').classList.toggle('active', tab === 'dues');
+    document.getElementById('tabBtnTransactions').classList.toggle('active', tab === 'transactions');
+    document.getElementById('tabBtnAssistant').classList.toggle('active', tab === 'assistant');
+
+    // First time the assistant tab is opened, kick things off with its
+    // greeting menu instead of showing an empty box.
+    const botMessages = document.getElementById('dashBotMessages');
+    if (tab === 'assistant' && !botMessages.dataset.started) {
+      botMessages.dataset.started = 'true';
+      sendDashBotIntent('menu');
+    }
+  }
+
   // Small helper so every "could not load X" message looks the same:
   // an icon, a title, and a button to try again.
   // retryCall is a string like "loadDues()" that gets run when the button is clicked.
@@ -130,24 +178,6 @@
       '<p class="empty-state-sub">Check that the backend server is running, then try again.</p>' +
       '<button class="btn-secondary btn-small" onclick="' + retryCall + '">Retry</button>' +
       '</div>';
-  }
-
-  function updateStats() {
-    const activeCount = currentBookings.filter(function (b) { return b.status !== 'cancelled'; }).length;
-    document.getElementById('statActiveBookings').textContent = activeCount;
-
-    const unpaid = currentDues.filter(function (d) { return d.status !== 'paid'; });
-    const pendingTotal = unpaid.reduce(function (sum, d) { return sum + d.total_amount; }, 0);
-    const pendingEl = document.getElementById('statPendingDues');
-    pendingEl.textContent = 'Rs ' + pendingTotal;
-    pendingEl.classList.toggle('warn', pendingTotal > 0);
-
-    if (unpaid.length) {
-      const sorted = unpaid.slice().sort(function (a, b) { return new Date(a.due_date) - new Date(b.due_date); });
-      document.getElementById('statNextDue').textContent = sorted[0].due_date;
-    } else {
-      document.getElementById('statNextDue').textContent = 'None';
-    }
   }
 
   async function loadBookings() {
@@ -162,16 +192,15 @@
           '<p class="empty-state-sub">Once you book a room, it will show up here.</p>' +
           '<button class="btn-secondary btn-small" onclick="location.href=\'explore.html\'">Explore rooms</button>' +
           '</div>';
-        updateStats();
         return;
       }
       list.innerHTML = currentBookings.map(function (b) {
-        const title = b.property_name ? (b.property_name + (b.city ? ' · ' + b.city : '')) : ('Room #' + b.room_id);
+        const title = b.property_name ? (escapeHtml(b.property_name) + (b.city ? ' · ' + escapeHtml(b.city) : '')) : ('Room #' + b.room_id);
         const meta = [];
-        if (b.room_type) meta.push(b.room_type);
+        if (b.room_type) meta.push(escapeHtml(b.room_type));
         meta.push('Move-in: ' + (b.move_in_date || 'Not set'));
         if (b.rent_amount) meta.push('Rs ' + b.rent_amount + '/mo');
-        if (b.token_paid) meta.push('Token paid: Rs ' + b.token_amount);
+        if (b.token_paid) meta.push('Deposit paid: Rs ' + b.token_amount);
 
         // Same "cancel" action underneath for both cases, but it means two
         // different things to the tenant: dropping a request that hasn't
@@ -184,7 +213,9 @@
           actionBtn = '<button class="btn-secondary btn-small" onclick="cancelBooking(' + b.id + ', true)">End stay / move out</button>';
         }
 
-        return '<div class="booking-row">' +
+        // Cancelled bookings shouldn't visually compete with active ones -
+        // they're history, not something that needs attention right now.
+        return '<div class="booking-row' + (b.status === 'cancelled' ? ' booking-row-cancelled' : '') + '">' +
           '<div><strong>' + title + '</strong>' +
           '<p class="room-meta" style="margin:2px 0 0">' + meta.join(' · ') + '</p></div>' +
           '<div style="display:flex;align-items:center;gap:10px">' +
@@ -193,7 +224,6 @@
           '</div>' +
           '</div>';
       }).join('');
-      updateStats();
     } catch (err) {
       list.innerHTML = errorCard('Could not load bookings', 'loadBookings()');
     }
@@ -223,30 +253,29 @@
     const list = document.getElementById('dueList');
     try {
       currentDues = await apiGet('/tenant/dues', token);
-      if (!currentDues.length) {
+      // Paid dues have their own home now - the Transactions tab (with a
+      // downloadable receipt) - so this tab only needs to show what's
+      // actually still owed.
+      const pending = currentDues.filter(function (d) { return d.status !== 'paid'; });
+      if (!pending.length) {
         list.innerHTML =
           '<div class="empty-state">' +
           '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l3 3v17l-3-2-3 2-3-2-3 2V2Z"></path><path d="M9 8h6M9 12h6"></path></svg></div>' +
-          '<p class="empty-state-title">No dues yet</p>' +
-          '<p class="empty-state-sub">Rent and other charges from your owner will appear here.</p>' +
+          '<p class="empty-state-title">No pending dues</p>' +
+          '<p class="empty-state-sub">You\'re all caught up. Paid dues are under Transactions.</p>' +
           '</div>';
-        updateStats();
         return;
       }
-      list.innerHTML = currentDues.map(function (d) {
+      list.innerHTML = pending.map(function (d) {
         const lateFeeNote = d.late_fee > 0 ? ' · Rs ' + d.late_fee + ' late fee' : '';
-        const rightSide = d.status === 'paid'
-          ? '<span class="status-tag paid">paid</span>'
-          : '<button class="btn-secondary btn-small" onclick="payDue(' + d.id + ')">Pay now</button>';
         return '<div class="due-row">' +
-          '<div><strong>' + d.category + '</strong>' +
+          '<div><strong>' + escapeHtml(d.category) + '</strong>' +
           '<p class="room-meta" style="margin:2px 0 0">Due ' + d.due_date + lateFeeNote + '</p></div>' +
           '<div style="text-align:right">' +
           '<p class="due-amount" style="margin:0 0 6px">Rs ' + d.total_amount + '</p>' +
-          rightSide +
+          '<button class="btn-secondary btn-small" onclick="payDue(' + d.id + ')">Pay now</button>' +
           '</div></div>';
       }).join('');
-      updateStats();
     } catch (err) {
       list.innerHTML = errorCard('Could not load dues', 'loadDues()');
     }
@@ -259,6 +288,7 @@
         await apiPost('/tenant/dues/' + dueId + '/pay', {}, token);
         showStatus('Payment successful! (dev mode - no payment gateway set up yet)', 'success');
         loadDues();
+        loadTransactions();
       } catch (err) {
         showStatus('Payment failed. Please try again.', 'error');
       }
@@ -287,6 +317,7 @@
             }, token);
             showStatus('Payment successful!', 'success');
             loadDues();
+            loadTransactions();
           } catch (err) {
             showStatus('Payment went through but could not be verified. Please contact support.', 'error');
           }
@@ -302,6 +333,243 @@
     } catch (err) {
       showStatus('Could not start payment. Please try again.', 'error');
     }
+  }
+
+  async function loadTransactions() {
+    const list = document.getElementById('transactionList');
+    try {
+      currentTransactions = await apiGet('/tenant/transactions', token);
+      if (!currentTransactions.length) {
+        list.innerHTML =
+          '<div class="empty-state">' +
+          '<div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M8 14h4"></path></svg></div>' +
+          '<p class="empty-state-title">No transactions yet</p>' +
+          '<p class="empty-state-sub">Every due or deposit you pay will show up here, with a downloadable receipt.</p>' +
+          '</div>';
+        return;
+      }
+      // Grouped by month (newest first, since the backend already sorts
+      // that way) so a long history reads as "July 2026", "June 2026",
+      // ... instead of one flat list with no sense of time.
+      let lastMonthLabel = '';
+      list.innerHTML = currentTransactions.map(function (t) {
+        const txnDate = new Date(t.date);
+        const monthLabel = txnDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+        let monthHeading = '';
+        if (monthLabel !== lastMonthLabel) {
+          monthHeading = '<p class="transaction-month-heading">' + monthLabel + '</p>';
+          lastMonthLabel = monthLabel;
+        }
+
+        return monthHeading +
+          '<div class="due-row">' +
+          '<div><strong>' + escapeHtml(t.label) + '</strong>' +
+          '<p class="room-meta" style="margin:2px 0 0">' + txnDate.toLocaleDateString() +
+          (t.transaction_id ? ' · ' + escapeHtml(t.transaction_id) : '') + '</p></div>' +
+          '<div style="text-align:right">' +
+          '<p class="due-amount" style="margin:0 0 6px">Rs ' + t.amount + '</p>' +
+          '<button class="btn-secondary btn-small" onclick="downloadReceipt(\'' + escapeJsAttr(t.id) + '\')">Download receipt</button>' +
+          '</div></div>';
+      }).join('');
+    } catch (err) {
+      list.innerHTML = errorCard('Could not load transactions', 'loadTransactions()');
+    }
+  }
+
+  // Generates a real .pdf file and saves it straight to the tenant's
+  // Downloads folder - no popup window, no print dialog. We tried the
+  // "open a printable page and call window.print()" approach before,
+  // but that only ever produces a PDF if the tenant manually picks
+  // "Save as PDF" as the destination printer in the dialog that pops up
+  // (it defaults to whatever printer they used last, which is why
+  // clicking the button didn't seem to download anything). jsPDF builds
+  // the file directly in the browser instead, so clicking the button
+  // always saves an actual PDF, no extra steps needed.
+  function downloadReceipt(transactionId) {
+    const txn = currentTransactions.find(function (t) { return t.id === transactionId; });
+    if (!txn) return;
+
+    if (!window.jspdf) {
+      showStatus('Could not generate the PDF - please refresh the page and try again.', 'error');
+      return;
+    }
+
+    const tenantName = localStorage.getItem('rentora_user_name') || 'Tenant';
+    const dateStr = new Date(txn.date).toLocaleDateString();
+    const marginX = 20;
+    const rightEdge = 190;
+
+    const jsPDF = window.jspdf.jsPDF;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+    let y = 26;
+
+    // Two-tone "Rent" / "ora" wordmark, same navy/blue split as the real
+    // logo (drawn as two separate text calls since jsPDF's built-in
+    // fonts don't include the Unbounded font the real logo uses).
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(22);
+    pdf.setTextColor(15, 27, 51);
+    pdf.text('Rent', marginX, y);
+    pdf.setTextColor(74, 111, 165);
+    pdf.text('ora', marginX + pdf.getTextWidth('Rent'), y);
+
+    y += 7;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    pdf.setTextColor(107, 106, 99);
+    pdf.text('Payment receipt', marginX, y);
+
+    y += 5;
+    pdf.setDrawColor(227, 225, 219);
+    pdf.line(marginX, y, rightEdge, y);
+    y += 10;
+
+    const rows = [
+      ['Paid by', tenantName],
+      ['Description', txn.label],
+      ['Date', dateStr],
+      ['Payment method', txn.method || '-'],
+      ['Transaction ID', txn.transaction_id || '-'],
+    ];
+    rows.forEach(function (row) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(107, 106, 99);
+      pdf.text(row[0], marginX, y);
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(26, 26, 26);
+      pdf.text(String(row[1]), rightEdge, y, { align: 'right' });
+
+      y += 6;
+      pdf.setDrawColor(240, 239, 233);
+      pdf.line(marginX, y, rightEdge, y);
+      y += 6;
+    });
+
+    // "Total paid" called out in a highlighted box instead of blending
+    // into the rest of the rows above.
+    y += 4;
+    pdf.setFillColor(232, 237, 245);
+    pdf.roundedRect(marginX, y, rightEdge - marginX, 16, 3, 3, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(27, 42, 74);
+    pdf.text('Total paid', marginX + 6, y + 10);
+    pdf.setFontSize(15);
+    pdf.setTextColor(15, 27, 51);
+    pdf.text('Rs ' + txn.amount, rightEdge - 6, y + 10, { align: 'right' });
+
+    y += 26;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(154, 152, 144);
+    pdf.text('This is a system-generated receipt from Rentora.', 105, y, { align: 'center' });
+
+    pdf.save('rentora-receipt-' + transactionId + '.pdf');
+  }
+
+  // ----- Rentora Assistant (a simple menu bot, not real AI) -----
+  // This used to be a floating popup on the property page; it's now a
+  // proper tab here instead, since it isn't really tied to any one
+  // property or owner - it just answers from a fixed set of options.
+
+  const DASH_BOT_INTENT_MAP = {
+    'Raise a complaint': 'raise_complaint',
+    'More details about my PG': 'pg_details',
+    'I have a doubt': 'doubt',
+    'Request a call': 'request_call',
+  };
+
+  function appendDashBotMessage(from, text) {
+    const box = document.getElementById('dashBotMessages');
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble ' + (from === 'me' ? 'mine' : 'theirs');
+    bubble.textContent = text;
+    box.appendChild(bubble);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function sendDashBotIntent(intent, text) {
+    try {
+      const res = await apiPost('/bot/message', { intent: intent, text: text || null }, token);
+      appendDashBotMessage('bot', res.reply);
+      renderDashBotOptions(res.options || []);
+    } catch (err) {
+      appendDashBotMessage('bot', 'Sorry, something went wrong on my end.');
+    }
+  }
+
+  function renderDashBotOptions(options) {
+    const box = document.getElementById('dashBotOptions');
+    box.innerHTML = options.map(function (opt) {
+      return '<button type="button" class="chip" onclick="handleDashBotOption(\'' + escapeJsAttr(opt) + '\')">' + escapeHtml(opt) + '</button>';
+    }).join('');
+  }
+
+  function handleDashBotOption(optionLabel) {
+    appendDashBotMessage('me', optionLabel);
+    document.getElementById('dashBotOptions').innerHTML = '';
+
+    if (optionLabel === 'Explore rooms') {
+      window.location.href = 'explore.html';
+      return;
+    }
+    if (optionLabel === 'Request a call') {
+      requestCallFromAssistant();
+      return;
+    }
+    if (DASH_BOT_INTENT_MAP[optionLabel]) {
+      sendDashBotIntent(DASH_BOT_INTENT_MAP[optionLabel]);
+      return;
+    }
+    // Complaint categories and anything else this simple bot doesn't
+    // actually handle - point to the real form instead of pretending.
+    appendDashBotMessage('bot', 'For that, please use the matching section on this dashboard so the owner gets the full details.');
+  }
+
+  // Free-typed questions always send with the "doubt" intent plus the
+  // typed text - see bot.py. It doesn't run any real AI over it, but it
+  // does acknowledge what was typed instead of ignoring it.
+  function sendDashBotFreeText() {
+    const input = document.getElementById('dashBotFreeTextInput');
+    const text = input.value.trim();
+    if (!text) return;
+    appendDashBotMessage('me', text);
+    input.value = '';
+    sendDashBotIntent('doubt', text);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const dashBotFreeTextInput = document.getElementById('dashBotFreeTextInput');
+    if (dashBotFreeTextInput) {
+      dashBotFreeTextInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          sendDashBotFreeText();
+        }
+      });
+    }
+  });
+
+  // "Request a call" needs an actual property to call about. The
+  // property page always knows which one you're looking at - the
+  // dashboard doesn't, so we use whichever booking is currently
+  // confirmed instead (keeping it simple: most tenants only have one
+  // active stay at a time).
+  function requestCallFromAssistant() {
+    const confirmedBooking = currentBookings.find(function (b) { return b.status === 'confirmed'; });
+    if (!confirmedBooking) {
+      appendDashBotMessage('bot', "You don't have a confirmed booking yet, so there's no owner to call you back. Book a room first!");
+      return;
+    }
+    apiPost('/tenant/properties/' + confirmedBooking.property_id + '/request-call', {}, token)
+      .then(function () {
+        appendDashBotMessage('bot', 'Done - the owner has been notified and should call you back soon.');
+      })
+      .catch(function () {
+        appendDashBotMessage('bot', "Sorry, I couldn't send that request. Please try again in a moment.");
+      });
   }
 
   async function loadComplaints() {
@@ -320,10 +588,10 @@
       list.innerHTML = complaints.slice().reverse().map(function (c) {
         return '<div class="complaint-row">' +
           '<div class="complaint-row-top">' +
-          '<strong style="text-transform:capitalize">' + c.category + '</strong>' +
+          '<strong style="text-transform:capitalize">' + escapeHtml(c.category) + '</strong>' +
           '<span class="status-tag ' + c.status + '">' + c.status.replace('_', ' ') + '</span>' +
           '</div>' +
-          (c.description ? '<p class="room-meta" style="margin:0">' + c.description + '</p>' : '') +
+          (c.description ? '<p class="room-meta" style="margin:0">' + escapeHtml(c.description) + '</p>' : '') +
           '</div>';
       }).join('');
     } catch (err) {
@@ -358,6 +626,7 @@
   loadConfig();
   loadBookings();
   loadDues();
+  loadTransactions();
   loadComplaints();
 </script>
 </body>

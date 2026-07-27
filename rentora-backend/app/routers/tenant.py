@@ -18,10 +18,13 @@ from app.schemas.tenant import BookingCreate, BookingOut, BookingOrderOut, Booki
 from app.schemas.call_request import CallRequestCreate
 from app.services.ai import calculate_match_score
 
-# The token amount a tenant pays up front to book a room - 10% of the
-# room's monthly rent. Kept as one constant so both endpoints below (and
-# anyone reading this later) agree on exactly how it's calculated.
-TOKEN_PERCENT = 0.10
+# The deposit a tenant pays up front to book a room - equal to one full
+# month's rent (same as a normal PG/rental security deposit). Kept as one
+# constant so both endpoints below (and anyone reading this later) agree
+# on exactly how it's calculated. We still call the DB columns/variables
+# "token_*" internally (that's what they're named in the database), but
+# everything the tenant/owner actually SEES calls it a "deposit" now.
+TOKEN_PERCENT = 1.0
 
 router = APIRouter(prefix="/tenant", tags=["tenant"])
 
@@ -61,6 +64,7 @@ def explore_rooms(
                 "property_id": pid,
                 "property_name": room.property.name,
                 "city": room.property.city,
+                "address": room.property.address,
                 "room_types": set(),
                 "rent_min": float(room.rent_amount),
                 "rent_max": float(room.rent_amount),
@@ -151,7 +155,7 @@ def request_call(
 def get_bookable_room(db: Session, room_id: int, tenant_id: int) -> Room:
     """
     Shared check used by every booking-creation path below (the plain
-    "dev mode" booking, and both steps of the real token-payment flow):
+    "dev mode" booking, and both steps of the real deposit-payment flow):
     the room has to still be available, and this tenant can't already
     have an active request/booking on it. Raises a 404/400 if either
     check fails, otherwise hands back the Room so the caller can use it.
@@ -186,7 +190,7 @@ def create_booking(
     """
     The simple "no payment gateway configured" booking path - used as a
     fallback by the frontend when Razorpay keys aren't set up yet. Books
-    the room directly with no token payment attached.
+    the room directly with no deposit payment attached.
     """
     room = get_bookable_room(db, payload.room_id, current_user.id)
 
@@ -209,10 +213,11 @@ def create_booking_order(
     current_user: User = Depends(require_tenant),
 ):
     """
-    Step 1 of the real token-payment flow: check the room can actually be
-    booked, work out the token amount (10% of rent), and ask Razorpay to
-    create an "order" for it. The frontend uses this to open the Razorpay
-    popup - no money moves yet, no Booking row is created yet either.
+    Step 1 of the real deposit-payment flow: check the room can actually
+    be booked, work out the deposit amount (one month's rent), and ask
+    Razorpay to create an "order" for it. The frontend uses this to open
+    the Razorpay popup - no money moves yet, no Booking row is created
+    yet either.
     """
     room = get_bookable_room(db, payload.room_id, current_user.id)
 
@@ -249,7 +254,7 @@ def verify_booking_payment(
     current_user: User = Depends(require_tenant),
 ):
     """
-    Step 2 of the real token-payment flow: after the tenant pays inside
+    Step 2 of the real deposit-payment flow: after the tenant pays inside
     the Razorpay popup, the frontend sends back the order/payment/
     signature values. We verify the signature ourselves (so a booking
     can't be faked by just calling this endpoint with made-up values),
@@ -286,9 +291,9 @@ def verify_booking_payment(
 
     # Real money has now changed hands, so the room is reserved right
     # away instead of waiting for the owner to confirm - otherwise a
-    # second tenant could pay a token for the same room before the owner
-    # gets around to it. (The plain no-payment "dev mode" booking above
-    # doesn't do this - it's just a request, nothing's been paid yet.)
+    # second tenant could pay a deposit on the same room before the
+    # owner gets around to it. (The plain no-payment "dev mode" booking
+    # above doesn't do this - it's just a request, nothing's been paid.)
     room.is_available = False
 
     db.commit()
@@ -340,7 +345,7 @@ def cancel_booking(
 
     # If the room had been reserved for this booking, free it back up so
     # other tenants can book it again. That covers two cases now: the
-    # owner already confirmed it, OR the tenant paid a token (which
+    # owner already confirmed it, OR the tenant paid a deposit (which
     # reserves the room immediately, before the owner confirms anything).
     if booking.status == BookingStatus.confirmed or booking.token_paid:
         room = db.query(Room).filter(Room.id == booking.room_id).first()

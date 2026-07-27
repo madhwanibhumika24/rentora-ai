@@ -231,3 +231,55 @@ def list_my_payments(
         .filter(Due.tenant_id == current_user.id)
         .all()
     )
+
+
+@router.get("/tenant/transactions")
+def list_my_transactions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant),
+):
+    """
+    Powers the "Transactions" section on the tenant dashboard. Money the
+    tenant has actually paid comes from two different tables that don't
+    know about each other - rent/due payments (Payment, tied to a Due)
+    and booking deposits (a paid Booking) - so this combines both into
+    one flat list, newest first, in a shape the frontend can render
+    the same way no matter which kind a row is.
+    """
+    results = []
+
+    due_payments = (
+        db.query(Payment)
+        .join(Due)
+        .filter(Due.tenant_id == current_user.id)
+        .all()
+    )
+    for p in due_payments:
+        results.append({
+            "id": "due-" + str(p.id),
+            "type": "due",
+            "label": p.due.category.capitalize() + " due",
+            "amount": float(p.amount),
+            "date": p.paid_at,
+            "method": p.method,
+            "transaction_id": p.transaction_id,
+        })
+
+    deposit_bookings = (
+        db.query(Booking)
+        .filter(Booking.tenant_id == current_user.id, Booking.token_paid == True)
+        .all()
+    )
+    for b in deposit_bookings:
+        results.append({
+            "id": "booking-" + str(b.id),
+            "type": "deposit",
+            "label": "Booking deposit - " + b.room.property.name,
+            "amount": float(b.token_amount) if b.token_amount is not None else 0,
+            "date": b.created_at,
+            "method": "razorpay",
+            "transaction_id": b.razorpay_payment_id,
+        })
+
+    results.sort(key=lambda r: r["date"], reverse=True)
+    return results

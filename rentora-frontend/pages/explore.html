@@ -4,12 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rentora - Explore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
 </head>
 <body class="app-body">
 
 <div class="topnav">
-  <div class="nav-logo"><div class="logo-badge">R</div> Rentora</div>
+  <div class="nav-logo"><div class="logo-badge"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 10 L12 3 L20 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><text x="12" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="'Unbounded', sans-serif">R</text></svg></div> <span>Rent<span class="nav-logo-accent">ora</span></span></div>
   <div class="nav-links">
     <a class="nav-link active" href="explore.html">Explore</a>
     <a class="nav-link" href="dashboard.html">Dashboard</a>
@@ -212,7 +215,7 @@
     board.innerHTML = sorted.map(function (c) {
       const pct = Math.round((c[1] / max) * 100);
       return '<div class="city-bar-row">' +
-        '<div class="city-bar-label"><span>' + c[0] + '</span><span style="color:var(--text-secondary)">' + c[1] + '</span></div>' +
+        '<div class="city-bar-label"><span>' + escapeHtml(c[0]) + '</span><span style="color:var(--text-secondary)">' + c[1] + '</span></div>' +
         '<div class="city-bar-track"><div class="city-bar-fill" style="width:' + pct + '%"></div></div>' +
         '</div>';
     }).join('');
@@ -269,8 +272,11 @@
         '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8Z"></path></svg>' +
         '</button>' +
         '<span class="match-badge">' + p.match_score + '% match</span>' +
-        '<h3>' + p.property_name + '</h3>' +
-        '<p class="room-meta">' + p.city + ' · ' + p.room_types.join(', ') + '</p>' +
+        '<h3>' + escapeHtml(p.property_name) + '</h3>' +
+        '<p class="location-badge">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>' +
+        (p.address ? escapeHtml(p.address) + ', ' : '') + escapeHtml(p.city) + '</p>' +
+        '<p class="room-meta">' + escapeHtml(p.room_types.join(', ')) + '</p>' +
         '<p class="room-meta">' + roomsSummary + '</p>' +
         '<p class="room-rent">' + rentText + '</p>' +
         '<button class="btn-secondary btn-small" onclick="location.href=\'property.html?id=' + p.property_id + '\'">View property</button>';

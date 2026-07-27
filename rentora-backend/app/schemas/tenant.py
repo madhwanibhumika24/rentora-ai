@@ -34,8 +34,8 @@ class BookingStatusUpdate(BaseModel):
 
 class BookingOrderOut(BaseModel):
     # What the browser needs to open the Razorpay popup for a booking's
-    # token payment - same shape as dues' OrderOut, plus the room it's
-    # for and the token amount so the frontend can show it before paying.
+    # deposit payment - same shape as dues' OrderOut, plus the room it's
+    # for and the deposit amount so the frontend can show it before paying.
     order_id: str
     amount: int
     currency: str

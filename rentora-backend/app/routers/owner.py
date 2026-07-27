@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.core.deps import require_owner
+from app.core.payments import get_razorpay_client
 from app.models.user import User
 from app.models.property import Property
 from app.models.room import Room
@@ -33,6 +34,12 @@ router = APIRouter(prefix="/owner", tags=["owner"])
 
 # Where uploaded property photos get saved on disk.
 UPLOAD_DIR = "uploads/properties"
+
+# Without these checks, anyone with an owner account could upload a
+# giant file (fills up disk space) or a non-image file (served back out
+# at a public URL, which is a real risk) through this endpoint.
+ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def get_owned_property(db: Session, property_id: int, owner_id: int) -> Property:
@@ -219,6 +226,13 @@ def upload_property_photo(
 ):
     get_owned_property(db, property_id, current_user.id)
 
+    if file.content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(status_code=400, detail="Please upload a JPG, PNG, WEBP, or GIF image.")
+
+    contents = file.file.read()
+    if len(contents) > MAX_PHOTO_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="Photo is too large - please keep it under 5 MB.")
+
     folder = os.path.join(UPLOAD_DIR, str(property_id))
     os.makedirs(folder, exist_ok=True)
 
@@ -228,7 +242,7 @@ def upload_property_photo(
     saved_path = os.path.join(folder, saved_filename)
 
     with open(saved_path, "wb") as saved_file:
-        saved_file.write(file.file.read())
+        saved_file.write(contents)
 
     photo = PropertyPhoto(
         property_id=property_id,
@@ -370,6 +384,22 @@ def update_booking_status(
         # this, ending a confirmed booking from the owner's side would
         # leave the room stuck as unavailable forever.
         room.is_available = True
+
+        # If the tenant paid a real token amount, give it back - they
+        # shouldn't lose money just because the owner said no. Best
+        # effort: if the refund call fails for any reason (gateway not
+        # configured, payment too old, etc.) the booking is still
+        # cancelled and the room still freed up - the owner would just
+        # need to refund manually via the Razorpay dashboard in that case.
+        if booking.token_paid and booking.razorpay_payment_id:
+            client = get_razorpay_client()
+            if client is not None:
+                try:
+                    client.payment.refund(booking.razorpay_payment_id, {
+                        "amount": int(round(float(booking.token_amount) * 100)),
+                    })
+                except Exception:
+                    pass
 
     db.commit()
     db.refresh(booking)

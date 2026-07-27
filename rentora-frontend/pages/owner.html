@@ -4,12 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rentora - Owner dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
 </head>
 <body class="app-body">
 
 <div class="topnav">
-  <div class="nav-logo"><div class="logo-badge">R</div> Rentora</div>
+  <div class="nav-logo"><div class="logo-badge"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 10 L12 3 L20 10" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><text x="12" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="'Unbounded', sans-serif">R</text></svg></div> <span>Rent<span class="nav-logo-accent">ora</span></span></div>
   <div class="nav-links">
     <a class="nav-link active" href="owner.html">My properties</a>
   </div>
@@ -214,20 +217,26 @@
 
         cards.push(
           '<div class="room-card">' +
+          // Name + icon buttons share the top row (min-width:0 lets the
+          // name shrink/wrap instead of forcing the row wider than the
+          // card). The location badge used to sit inside that same
+          // shrunken left side, fighting the icons for space - now it
+          // sits on its own line below, so it gets the FULL card width
+          // to show the address+city on one line before truncating.
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">' +
-          '<div><h3 style="margin-bottom:14px">' + p.name + '</h3>' +
-          '<p class="location-badge">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>' +
-          p.address + ', ' + p.city + '</p></div>' +
+          '<h3 style="min-width:0;flex:1;margin:0 0 10px">' + escapeHtml(p.name) + '</h3>' +
           '<div class="card-icon-actions">' +
           '<button class="icon-btn" title="Edit name, city, address" onclick="showEditDetails(' + p.id + ')">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>' +
           '</button>' +
-          '<button class="icon-btn danger" title="Delete property" onclick="deleteProperty(' + p.id + ', \'' + p.name.replace(/'/g, "\\'") + '\')">' +
+          '<button class="icon-btn danger" title="Delete property" onclick="deleteProperty(' + p.id + ', \'' + escapeJsAttr(p.name) + '\')">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
           '</button>' +
           '</div>' +
           '</div>' +
+          '<p class="location-badge">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>' +
+          escapeHtml(p.address) + ', ' + escapeHtml(p.city) + '</p>' +
           floorsLine +
           '<p class="room-meta" style="font-weight:600;color:var(--brand-dark);margin:0 0 16px">' + totalBeds + ' beds total · ' + vacantBeds + ' vacant</p>' +
           '<div class="card-actions">' +
@@ -256,7 +265,7 @@
   // way logout and booking do, so nobody loses data with one misclick.
   function deleteProperty(propertyId, propertyName) {
     showConfirm(
-      'Delete "' + propertyName + '"?',
+      'Delete "' + escapeHtml(propertyName) + '"?',
       'This removes the property, all its rooms, photos, rules, and booking requests. This cannot be undone.',
       'Delete property',
       async function () {
@@ -283,7 +292,7 @@
   // showPropertyDetails() below.
   function ownerRoomRowHtml(r) {
     const floorLabel = (r.floor_number !== null && r.floor_number !== undefined) ? 'Floor ' + r.floor_number : '-';
-    const roomLabel = r.room_type + (r.room_number ? ' - Room ' + r.room_number : '');
+    const roomLabel = escapeHtml(r.room_type) + (r.room_number ? ' - Room ' + escapeHtml(r.room_number) : '');
     const badge = '<span class="availability-badge ' + (r.is_available ? 'available' : 'unavailable') + '">' +
       (r.is_available ? 'Vacant' : 'Occupied') + '</span>';
     return '<tr>' +
@@ -576,7 +585,7 @@
       }
       list.innerHTML = rules.map(function (r) {
         return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">' +
-          '<span style="font-size:13px">' + r.text + '</span>' +
+          '<span style="font-size:13px">' + escapeHtml(r.text) + '</span>' +
           '<button class="link-btn" style="color:var(--danger)" onclick="deleteRule(' + propertyId + ', ' + r.id + ')">Remove</button>' +
           '</div>';
       }).join('');
@@ -832,13 +841,15 @@
       list.innerHTML = currentBookings.map(function (b) {
         let action = '';
         if (b.status === 'requested') {
-          action = '<button class="btn-secondary btn-small" onclick="confirmBooking(' + b.id + ')">Confirm</button>';
+          action =
+            '<button class="btn-secondary btn-small" onclick="confirmBooking(' + b.id + ')">Confirm</button>' +
+            ' <button class="btn-secondary btn-small" onclick="declineBooking(' + b.id + ', ' + !!b.token_paid + ', ' + (b.token_amount || 0) + ')">Decline</button>';
         } else if (b.status === 'confirmed') {
           // Lets the owner free up a room themselves if a tenant moves out
           // without cancelling it from their own dashboard first.
           action = '<button class="btn-secondary btn-small" onclick="endTenancy(' + b.id + ')">End tenancy</button>';
         }
-        const tokenNote = b.token_paid ? ' · Token paid: Rs ' + b.token_amount : '';
+        const tokenNote = b.token_paid ? ' · Deposit paid: Rs ' + b.token_amount : '';
         return '<div class="booking-row">' +
           '<div><strong>Room #' + b.room_id + '</strong> · Tenant #' + b.tenant_id +
           '<p class="room-meta" style="margin:2px 0 0">Requested ' + new Date(b.created_at).toLocaleDateString() + tokenNote + '</p></div>' +
@@ -862,6 +873,27 @@
     } catch (err) {
       showStatus('Could not confirm booking.', 'error');
     }
+  }
+
+  function declineBooking(bookingId, tokenPaid, tokenAmount) {
+    const message = tokenPaid
+      ? 'This declines the request and frees up the room. The tenant paid a Rs ' + tokenAmount + ' deposit - it will be automatically refunded.'
+      : 'This declines the request and frees up the room for other tenants.';
+    showConfirm(
+      'Decline this booking request?',
+      message,
+      'Decline',
+      async function () {
+        try {
+          await apiPatch('/owner/bookings/' + bookingId, { status: 'cancelled' }, token);
+          showStatus(tokenPaid ? 'Request declined - refund initiated.' : 'Request declined.', 'success');
+          loadBookings();
+          loadProperties(); // the room is available again, so the vacant-beds count needs to update
+        } catch (err) {
+          showStatus('Could not decline booking: ' + err.message, 'error');
+        }
+      }
+    );
   }
 
   function endTenancy(bookingId) {
@@ -890,7 +922,7 @@
     try {
       currentTenants = await apiGet('/owner/tenants', token);
       const options = currentTenants.map(function (t) {
-        return '<option value="' + t.tenant_id + '">' + t.tenant_name + ' - ' + t.property_name + ' (' + t.room_type + ')</option>';
+        return '<option value="' + t.tenant_id + '">' + escapeHtml(t.tenant_name) + ' - ' + escapeHtml(t.property_name) + ' (' + escapeHtml(t.room_type) + ')</option>';
       });
       select.innerHTML = '<option value="">Select a tenant...</option>' + options.join('');
     } catch (err) {
@@ -949,7 +981,7 @@
       }
       list.innerHTML = currentOwnerDues.map(function (d) {
         return '<div class="due-row">' +
-          '<div><strong>' + d.tenant_name + '</strong> · ' + d.category +
+          '<div><strong>' + escapeHtml(d.tenant_name) + '</strong> · ' + escapeHtml(d.category) +
           '<p class="room-meta" style="margin:2px 0 0">Due ' + d.due_date + '</p></div>' +
           '<div style="text-align:right">' +
           '<p class="due-amount" style="margin:0 0 6px">Rs ' + d.total_amount + '</p>' +
@@ -986,8 +1018,8 @@
       }
       list.innerHTML = requests.map(function (r) {
         return '<div class="booking-row">' +
-          '<div><strong>' + r.tenant_name + '</strong> · ' + r.property_name +
-          '<p class="room-meta" style="margin:2px 0 0">' + (r.phone || 'No phone given') + (r.note ? ' · ' + r.note : '') + '</p></div>' +
+          '<div><strong>' + escapeHtml(r.tenant_name) + '</strong> · ' + escapeHtml(r.property_name) +
+          '<p class="room-meta" style="margin:2px 0 0">' + escapeHtml(r.phone || 'No phone given') + (r.note ? ' · ' + escapeHtml(r.note) : '') + '</p></div>' +
           '<span class="room-meta" style="margin:0">' + new Date(r.created_at).toLocaleDateString() + '</span>' +
           '</div>';
       }).join('');

@@ -16,6 +16,17 @@ class Settings(BaseSettings):
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
 
+    # Comma-separated list of frontend URLs allowed to call this API
+    # (CORS). Defaults cover local development (Live Server's usual
+    # ports). In production, set this in .env to your real deployed
+    # frontend URL(s), e.g. "https://rentora.netlify.app" - never leave
+    # this as "*" once real users/tokens are involved.
+    allowed_origins: str = "http://localhost:5500,http://127.0.0.1:5500,http://localhost:5501,http://127.0.0.1:5501"
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

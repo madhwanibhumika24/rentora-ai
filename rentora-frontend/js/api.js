@@ -1,4 +1,49 @@
-const API_BASE = "http://localhost:8000";
+// Picks the right backend URL automatically instead of a single
+// hardcoded address, so the exact same frontend files work both while
+// developing locally AND once deployed - nobody has to remember to
+// change this line before going live.
+//   - Running locally (localhost/127.0.0.1) -> talk to the local backend.
+//   - Deployed anywhere else -> talk to the real deployed backend.
+// Change PRODUCTION_API_BASE to your actual backend URL once it's hosted
+// somewhere (e.g. "https://rentora-api.onrender.com").
+const PRODUCTION_API_BASE = "https://api.rentora.example.com";
+const API_BASE = (
+  location.hostname === "localhost" || location.hostname === "127.0.0.1"
+) ? "http://localhost:8000" : PRODUCTION_API_BASE;
+
+// Almost every page here builds HTML by gluing strings together (e.g.
+// '<p>' + property.name + '</p>') instead of using a templating engine.
+// That's normally fine, EXCEPT when the text came from another user
+// (a property name, a chat message, a rule, someone's account name...) -
+// without escaping, a name like '<img src=x onerror=alert(1)>' would
+// actually run as real HTML/JS for whoever views that page. Wrap any
+// user-supplied text in this before dropping it into an innerHTML
+// string. (Text put into el.textContent doesn't need this - only
+// innerHTML string-building does.)
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// For the (fewer) spots that embed user text as an argument INSIDE an
+// inline onclick, e.g. onclick="deleteProperty('...name...')" - that
+// text sits in two nested contexts at once (a JS string, inside an HTML
+// attribute), so escapeHtml() alone isn't enough there. This escapes for
+// both: backslash/quote for the JS string, then &quot; for the outer
+// HTML attribute so a stray " can't break out of it either.
+function escapeJsAttr(value) {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 function getToken() {
   return localStorage.getItem('rentora_token');
